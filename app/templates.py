@@ -21,7 +21,8 @@ def _app_mode() -> str:
 def _safe_url(url: str) -> str:
     """Blocks javascript:/data: etc. in href/src; scheme-less hosts get https://."""
     url = (url or "").strip()
-    if url.lower().startswith(("http://", "https://")):
+    # "/path" (same host, e.g. a reverse-proxied stream) and "//host/path" are http(s) too
+    if url.lower().startswith(("http://", "https://", "/")):
         return url
     # any other scheme (javascript:, data:, vbscript:) — but "host:8080" is a port
     if not url or re.match(r"[a-z][a-z0-9+.-]*:(?!\d)", url, re.I):

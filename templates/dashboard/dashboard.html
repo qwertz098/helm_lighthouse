@@ -124,12 +124,15 @@ function mountFrame(frame, url) {
 }
 
 function openOverlay(name, media) {
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
   const overlay = el('div', { className: 'media-overlay' },
     el('div', { className: 'media-overlay-bar' },
       el('span', { textContent: name }),
-      el('button', { type: 'button', textContent: '✕ Schließen', onclick: () => overlay.remove() })),
+      el('button', { type: 'button', textContent: '✕ Schließen', onclick: close })),
     media);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', onKey);
   document.body.appendChild(overlay);
 }
 
@@ -180,7 +183,8 @@ tiles.addEventListener('click', e => {
       mountFrame(tile.querySelector('iframe.embed-frame'), btn.dataset.viewUrl);
       tile.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
       break;
-    case 'embed':  openEmbed(url, name);  break;
+    // fullscreen shows the chart view that is currently selected on the tile
+    case 'embed':  openEmbed(tile.querySelector('.view-btn.active')?.dataset.viewUrl || url, name); break;
     case 'camera': openCamera(url, name); break;
     case 'video':  openVideo(url, name);  break;
   }
