@@ -102,87 +102,104 @@ function onAddTypeChange(sel) {
   document.getElementById('add-bg-row').style.display = isChart ? 'none' : '';
 }
 
-function toggleDetails(id) {
-  const el = document.getElementById('details-' + id);
-  const btn = document.querySelector('#tile-' + id + ' .tile-btn[title="Expand details"]');
-  if (el.style.display === 'none') {
-    el.style.display = '';
-    btn.textContent = '−';
-    btn.title = 'Collapse details';
-  } else {
-    el.style.display = 'none';
-    btn.textContent = '＋';
-    btn.title = 'Expand details';
-  }
+function el(tag, props = {}, ...children) {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
 }
 
-// Refresh only the saved tile's preview after an edit PUT
-let _lastEditedTileId = null;
-document.body.addEventListener('htmx:beforeRequest', e => {
-  const path = e.detail.requestConfig?.path || '';
-  const m = path.match(/\/dashboard\/entries\/([^/]+)$/);
-  if (m && e.detail.requestConfig.verb === 'put') _lastEditedTileId = m[1];
-});
-document.body.addEventListener('htmx:afterSwap', e => {
-  if (!_lastEditedTileId) return;
-  if (!e.detail.target || e.detail.target.id !== 'tiles-container') return;
-  const img = e.detail.target.querySelector(`#tile-${_lastEditedTileId} img.link-thumb`);
-  if (img) {
-    const u = new URL(img.src, location.href);
-    delete _og_cache; // server-side cache cleared separately
-    img.src = img.src.split('&t=')[0] + '&t=' + Date.now();
-  }
-  _lastEditedTileId = null;
-});
+function streamError(text) {
+  return el('div', { className: 'stream-error', textContent: '⚠ ' + text });
+}
 
-function openVideo(url, name) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
-  overlay.innerHTML = `
-    <div style="color:#fff;font-weight:600;font-size:16px">${name}</div>
-    <video src="${url}" autoplay muted loop playsinline controls
-           style="max-width:90vw;max-height:80vh;border-radius:8px"
-           onerror="this.outerHTML='<div style=color:white>⚠ Video not reachable</div>'"></video>
-    <button onclick="this.closest('div').remove()"
-            style="padding:8px 20px;border:none;border-radius:6px;background:#fff;cursor:pointer">Close</button>`;
+// Sandbox only matters for same-origin embeds: those could otherwise reach into Helm.
+// Cross-origin embeds keep their own origin so their cookies/storage keep working.
+function mountFrame(frame, url) {
+  let sameOrigin = true;
+  try { sameOrigin = new URL(url, location.href).origin === location.origin; } catch (_) {}
+  frame.setAttribute('sandbox', sameOrigin
+    ? 'allow-scripts allow-forms'
+    : 'allow-scripts allow-same-origin allow-forms allow-popups');
+  frame.src = url;
+}
+
+function openOverlay(name, media) {
+  const overlay = el('div', { className: 'media-overlay' },
+    el('div', { className: 'media-overlay-bar' },
+      el('span', { textContent: name }),
+      el('button', { type: 'button', textContent: '✕ Schließen', onclick: () => overlay.remove() })),
+    media);
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
-}
-
-function switchChartView(tileId, url, btn) {
-  const frame = document.getElementById('chart-' + tileId);
-  if (frame) frame.src = url;
-  const sel = document.getElementById('views-' + tileId);
-  if (sel) sel.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
 }
 
 function openEmbed(url, name) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;flex-direction:column;align-items:stretch';
-  overlay.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(0,0,0,.6)">
-      <span style="color:#fff;font-weight:600;font-size:14px">${name}</span>
-      <button onclick="this.closest('div[style]').remove()"
-              style="padding:4px 14px;border:none;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">✕ Schließen</button>
-    </div>
-    <iframe src="${url}" style="flex:1;border:none;width:100%;height:100%"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>`;
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
+  const frame = el('iframe', { className: 'media-overlay-frame' });
+  mountFrame(frame, url);
+  openOverlay(name, frame);
 }
 
 function openCamera(url, name) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
-  overlay.innerHTML = `
-    <div style="color:#fff;font-weight:600;font-size:16px">${name}</div>
-    <img src="${url}" style="max-width:90vw;max-height:80vh;border-radius:8px"
-         onerror="this.outerHTML='<div style=color:white>⚠ Stream not reachable</div>'">
-    <button onclick="this.closest('div').remove()"
-            style="padding:8px 20px;border:none;border-radius:6px;background:#fff;cursor:pointer">Close</button>`;
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
+  const img = el('img', { className: 'media-overlay-media', src: url });
+  img.onerror = () => img.replaceWith(streamError('Stream not reachable'));
+  openOverlay(name, img);
 }
+
+function openVideo(url, name) {
+  const video = el('video', { className: 'media-overlay-media', src: url,
+                              autoplay: true, muted: true, loop: true, playsInline: true, controls: true });
+  video.onerror = () => video.replaceWith(streamError('Video not reachable'));
+  openOverlay(name, video);
+}
+
+function initFrames(root) {
+  root.querySelectorAll('iframe.embed-frame[data-src]').forEach(f => {
+    mountFrame(f, f.dataset.src);
+    f.removeAttribute('data-src');
+  });
+}
+
+const tiles = document.getElementById('tiles-container');
+initFrames(tiles);
+
+tiles.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const tile = btn.closest('.tile');
+  const { url, name } = tile.dataset;
+  switch (btn.dataset.action) {
+    case 'details': {
+      const details = tile.querySelector('.tile-details');
+      const open = details.style.display === 'none';
+      details.style.display = open ? '' : 'none';
+      btn.textContent = open ? '−' : '＋';
+      btn.title = open ? 'Collapse details' : 'Expand details';
+      break;
+    }
+    case 'view':
+      mountFrame(tile.querySelector('iframe.embed-frame'), btn.dataset.viewUrl);
+      tile.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
+      break;
+    case 'embed':  openEmbed(url, name);  break;
+    case 'camera': openCamera(url, name); break;
+    case 'video':  openVideo(url, name);  break;
+  }
+});
+
+// After an edit PUT, re-init frames and bust the edited tile's thumbnail cache
+let _lastEditedTileId = null;
+document.body.addEventListener('htmx:beforeRequest', e => {
+  const m = (e.detail.requestConfig?.path || '').match(/\/dashboard\/entries\/([^/]+)$/);
+  if (m && e.detail.requestConfig.verb === 'put') _lastEditedTileId = m[1];
+});
+document.body.addEventListener('htmx:afterSwap', e => {
+  if (e.detail.target?.id !== 'tiles-container') return;
+  initFrames(e.detail.target);
+  if (!_lastEditedTileId) return;
+  const img = document.getElementById('tile-' + _lastEditedTileId)?.querySelector('img.link-thumb');
+  if (img) img.src = img.src.split('&t=')[0] + '&t=' + Date.now();
+  _lastEditedTileId = null;
+});
 </script>
 {% endblock %}
 

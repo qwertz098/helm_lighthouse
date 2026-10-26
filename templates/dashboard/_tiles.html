@@ -3,12 +3,14 @@
   <div class="tile-group-label">{{ group }}</div>
   <div class="tile-grid">
     {% for tile in tiles %}
-    <div class="tile" id="tile-{{ tile.id }}" data-type="{{ tile.type }}">
+    {% set tile_url = tile.url | safe_url %}
+    <div class="tile" id="tile-{{ tile.id }}" data-type="{{ tile.type }}"
+         data-url="{{ tile_url }}" data-name="{{ tile.name }}">
 
       <!-- ── Header row ── -->
       <div class="tile-header">
         {% if tile.icon %}
-          <img class="tile-icon" src="{{ tile.icon }}" alt="" onerror="this.style.display='none'">
+          <img class="tile-icon" src="{{ tile.icon | safe_url }}" alt="" onerror="this.style.display='none'">
         {% elif tile.type == 'camera' %}
           <span class="tile-icon-emoji">📷</span>
         {% elif tile.type == 'video' %}
@@ -21,13 +23,12 @@
           <span class="tile-icon-emoji">🖥️</span>
         {% else %}
           <img class="tile-icon"
-               src="https://www.google.com/s2/favicons?domain={{ tile.url }}&sz=32"
+               src="https://www.google.com/s2/favicons?domain={{ tile_url | urlencode }}&sz=32"
                alt="" onerror="this.src='/static/link-icon.svg'">
         {% endif %}
-        <a class="tile-name" href="{{ tile.url }}" target="_blank" rel="noopener">{{ tile.name }}</a>
+        <a class="tile-name" href="{{ tile_url }}" target="_blank" rel="noopener">{{ tile.name }}</a>
         <div class="tile-actions">
-          <button class="tile-btn" title="Expand details"
-                  onclick="toggleDetails('{{ tile.id }}')">＋</button>
+          <button class="tile-btn" title="Expand details" data-action="details">＋</button>
           <button class="tile-btn tile-btn-danger" title="Delete"
                   hx-delete="/dashboard/entries/{{ tile.id }}"
                   hx-target="#tiles-container"
@@ -39,12 +40,12 @@
       {% if tile.type == 'chart' and tile.chart_views %}
         {% set views = tile.chart_views.split('\n') | select | list %}
         {% if views | length > 1 %}
-        <div class="tile-view-selector" id="views-{{ tile.id }}">
+        <div class="tile-view-selector">
           {% for v in views %}
-            {% set parts = v.split('|') %}
-            {% if parts | length >= 2 %}
+            {% set parts = v.split('|', 1) %}
+            {% if parts | length == 2 %}
             <button class="view-btn {% if loop.first %}active{% endif %}"
-                    onclick="switchChartView('{{ tile.id }}','{{ parts[1] | trim | replace("'","&#39;") }}',this)">
+                    data-action="view" data-view-url="{{ parts[1] | trim | safe_url }}">
               {{ parts[0] | trim }}
             </button>
             {% endif %}
@@ -56,51 +57,29 @@
       <!-- ── Preview ── -->
       <div class="tile-preview">
         {% if tile.type == 'camera' %}
-          <img class="camera-stream"
-               src="{{ tile.url }}"
-               alt="{{ tile.name }}"
-               title="Click to enlarge"
-               onclick="openCamera('{{ tile.url }}', '{{ tile.name }}')"
-               onerror="this.outerHTML='<div class=\'stream-error\'>⚠ Stream not reachable</div>'">
+          <img class="camera-stream" src="{{ tile_url }}" alt="{{ tile.name }}"
+               title="Click to enlarge" data-action="camera"
+               onerror="this.replaceWith(streamError('Stream not reachable'))">
         {% elif tile.type == 'video' %}
-          <video class="camera-stream"
-                 src="{{ tile.url }}"
+          <video class="camera-stream" src="{{ tile_url }}"
                  autoplay muted loop playsinline
-                 title="Click to enlarge"
-                 onclick="openVideo('{{ tile.url }}', '{{ tile.name }}')"
-                 onerror="this.outerHTML='<div class=\'stream-error\'>⚠ Video not reachable</div>'">
+                 title="Click to enlarge" data-action="video"
+                 onerror="this.replaceWith(streamError('Video not reachable'))">
           </video>
         {% elif tile.type == 'chart' %}
           <div class="embed-wrap">
-            <iframe id="chart-{{ tile.id }}"
-                    src="{{ tile.url }}"
-                    class="embed-frame"
-                    loading="lazy"
-                    sandbox="allow-scripts allow-same-origin allow-forms"
-                    title="{{ tile.name }}"></iframe>
-            <button class="embed-fullscreen-btn" title="Vollbild"
-                    onclick="openEmbed('{{ tile.url | replace("'","&#39;") }}','{{ tile.name | replace("'","&#39;") }}')">⤢</button>
+            {# src + sandbox are set by mountFrame() in dashboard.html #}
+            <iframe class="embed-frame" data-src="{{ tile_url }}" loading="lazy"
+                    referrerpolicy="no-referrer" title="{{ tile.name }}"></iframe>
+            <button class="embed-fullscreen-btn" title="Vollbild" data-action="embed">⤢</button>
           </div>
-        {% elif tile.type == 'vnc' %}
+        {% elif tile.type in ('vnc', 'rdp') %}
           <div class="embed-wrap embed-remote">
             <span class="embed-icon">🖥️</span>
-            <span class="embed-label">VNC — {{ tile.url }}</span>
-            <button class="btn btn-primary btn-sm"
-                    onclick="openEmbed('{{ tile.url | replace("'","&#39;") }}','{{ tile.name | replace("'","&#39;") }}')">
-              Verbinden
-            </button>
-          </div>
-        {% elif tile.type == 'rdp' %}
-          <div class="embed-wrap embed-remote">
-            <span class="embed-icon">🖥️</span>
-            <span class="embed-label">RDP — {{ tile.url }}</span>
-            <button class="btn btn-primary btn-sm"
-                    onclick="openEmbed('{{ tile.url | replace("'","&#39;") }}','{{ tile.name | replace("'","&#39;") }}')">
-              Verbinden
-            </button>
+            <span class="embed-label">{{ tile.type | upper }} — {{ tile.url }}</span>
+            <button class="btn btn-primary btn-sm" data-action="embed">Verbinden</button>
           </div>
         {% else %}
-          {% set tile_url = tile.url if '://' in tile.url else 'https://' + tile.url %}
           <a href="{{ tile_url }}" target="_blank" rel="noopener" class="link-thumb-wrap">
             <img class="link-thumb"
                  src="{% if tile.bg_image %}/dashboard/tile-bg?url={{ tile.bg_image | urlencode }}{% else %}/dashboard/og-image?url={{ tile_url | urlencode }}{% endif %}"

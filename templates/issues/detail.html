@@ -380,10 +380,16 @@ function renderMentionDropdown() {
     top = c.bottom + 6;
   } catch (_) {}
 
-  dropdown.innerHTML = mentionItems.map((item, i) =>
-    `<div class="mention-item${i === mentionIndex ? ' active' : ''}" data-i="${i}">` +
-    `<span style="color:#94a3b8;font-size:11px">#${item.id.slice(0,6)}</span> ${item.title}</div>`
-  ).join('');
+  dropdown.replaceChildren(...mentionItems.map((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'mention-item' + (i === mentionIndex ? ' active' : '');
+    row.dataset.i = i;
+    const idSpan = document.createElement('span');
+    idSpan.style.cssText = 'color:#94a3b8;font-size:11px';
+    idSpan.textContent = '#' + String(item.id).slice(0, 6);
+    row.append(idSpan, ' ' + item.title);
+    return row;
+  }));
   dropdown.style.left = left + 'px';
   dropdown.style.top = top + 'px';
   dropdown.style.display = 'block';
@@ -467,7 +473,11 @@ function addTag(text) {
   const pill = document.createElement('span');
   pill.className = 'tag-pill';
   pill.dataset.tag = text;
-  pill.innerHTML = `${text}<button type="button" class="tag-remove">×</button>`;
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'tag-remove';
+  removeBtn.textContent = '×';
+  pill.append(text, removeBtn);
   wrapper.insertBefore(pill, input);
 }
 function getTags() {

@@ -36,7 +36,7 @@
                 style="font-size:11px">Regenerate</button>
         {% if item.site_id %}
         <a class="btn btn-secondary btn-sm"
-           href="/api/sync/dashboard/{{ item.site_id }}"
+           href="/settings/lighthouse/instances/{{ item.site_id | urlencode }}/dashboard"
            style="font-size:11px"
            title="Download dashboard backup">📥 Dashboard</a>
         {% endif %}

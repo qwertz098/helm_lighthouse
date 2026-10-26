@@ -3,12 +3,15 @@ import os
 from pathlib import Path
 
 import yaml
-from fastapi import APIRouter, Form, Request
+import secrets
+
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from ..config import get_config, load_config
 from ..db import get_db
 from ..services.issue_index import sync_index
+from .sync import hash_token
 
 router = APIRouter(prefix="/settings")
 
@@ -231,19 +234,35 @@ async def save_lighthouse(
 async def lighthouse_instances(request: Request):
     db = await get_db()
     async with db.execute(
-        "SELECT site_name, url, created, last_seen, revoked FROM sync_instances ORDER BY created"
+        """SELECT s.site_name, s.site_id, s.url, s.created, s.last_seen, s.revoked, s.read_only,
+                  COUNT(i.id) AS issue_count
+           FROM sync_instances s
+           LEFT JOIN issues i ON s.site_id IS NOT NULL AND s.site_id != '' AND i.origin_site = s.site_id
+           GROUP BY s.site_name
+           ORDER BY s.created"""
     ) as cur:
-        rows = await cur.fetchall()
-    items = []
-    for r in rows:
-        d = dict(r)
-        async with db.execute(
-            "SELECT COUNT(*) as cnt FROM issues WHERE origin_site = ?", (d["site_name"],)
-        ) as cur2:
-            cnt = await cur2.fetchone()
-        d["issue_count"] = cnt["cnt"] if cnt else 0
-        items.append(d)
+        items = [dict(r) for r in await cur.fetchall()]
     return templates.TemplateResponse(request, "settings/_instances.html", {"items": items})
+
+
+@router.get("/lighthouse/instances/{site_id}/dashboard")
+async def download_dashboard_backup(site_id: str):
+    from fastapi.responses import FileResponse
+    from .sync import dashboard_backup_path
+    db = await get_db()
+    async with db.execute(
+        "SELECT site_id, site_name FROM sync_instances WHERE site_id = ?", (site_id,)
+    ) as cur:
+        row = await cur.fetchone()
+    # site_id comes from the DB row, so it cannot steer the path
+    if not row or not dashboard_backup_path(row["site_id"]).exists():
+        raise HTTPException(404, "No dashboard backup for this instance")
+    safe = "".join(c if c.isalnum() or c in " -_" else "_" for c in row["site_name"]).strip() or "site"
+    return FileResponse(
+        str(dashboard_backup_path(row["site_id"])),
+        media_type="application/x-yaml",
+        headers={"Content-Disposition": f'attachment; filename="dashboard-{safe}.yaml"'},
+    )
 
 
 @router.post("/lighthouse/register", response_class=HTMLResponse)
@@ -253,11 +272,10 @@ async def register_instance(
     url: str = Form(""),
     read_only: str = Form("off"),
 ):
-    import secrets, hashlib
     from datetime import datetime, timezone
     db = await get_db()
     token = secrets.token_urlsafe(32)
-    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    token_hash = hash_token(token)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     ro = 1 if read_only == "on" else 0
     await db.execute(
@@ -331,10 +349,9 @@ async def delete_report_template(request: Request, template_id: str):
 
 @router.post("/lighthouse/instances/{site_name}/regenerate", response_class=HTMLResponse)
 async def regenerate_token(request: Request, site_name: str):
-    import secrets, hashlib
     db = await get_db()
     token = secrets.token_urlsafe(32)
-    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    token_hash = hash_token(token)
     await db.execute(
         "UPDATE sync_instances SET token_hash = ?, revoked = 0 WHERE site_name = ?",
         (token_hash, site_name),

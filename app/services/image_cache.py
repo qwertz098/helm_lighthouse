@@ -32,7 +32,8 @@ def cached_path_for(url: str) -> Path:
 
 def get_or_fetch(url: str) -> Path | None:
     """Return the local cached (resized) image path, downloading if needed."""
-    if not url:
+    # urllib would also open file:// and ftp:// URLs
+    if not url or not url.lower().startswith(("http://", "https://")):
         return None
     dest = cached_path_for(url)
     if dest.exists():

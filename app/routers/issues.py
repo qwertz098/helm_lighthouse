@@ -24,6 +24,8 @@ router = APIRouter(prefix="/issues")
 
 
 def _zip_path(issue_id: str) -> Path:
+    if not store.is_safe_id(issue_id):
+        raise HTTPException(404)
     cfg = get_config()
     return cfg.issues_dir / f"issue-{issue_id}.zip"
 
@@ -346,11 +348,9 @@ async def sign_issue(request: Request, issue_id: str):
     _, body = store.read_issue(zip_path)
     store.write_issue(zip_path, meta, body)
 
-    # Remove any stale PDFs, then attach the freshly generated one
+    # add_attachment overwrites an existing report.pdf; user-attached PDFs stay
     try:
         from ..services.pdf_export import build_issue_pdf
-        for old_pdf in [f for f in store.list_attachments(zip_path) if f.lower().endswith(".pdf")]:
-            store.remove_attachment(zip_path, old_pdf)
         pdf_bytes = build_issue_pdf(meta, body, png_bytes, get_config().site_name)
         store.add_attachment(zip_path, "report.pdf", pdf_bytes)
     except Exception:

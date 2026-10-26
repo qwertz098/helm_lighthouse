@@ -15,10 +15,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 
+from html import escape
+
 import aiosmtplib
-import markdown as md_lib
 
 from .issue_store import read_issue
+from .markdown_render import render_markdown
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +106,7 @@ def _render_body(zip_path, base_url: str) -> str:
         _, body = read_issue(zip_path)
         if not body.strip():
             return ""
-        html = md_lib.markdown(body, extensions=["fenced_code", "tables"])
+        html = render_markdown(body)
         html = _embed_images(html, zip_path)
         return html
     except Exception:
@@ -113,7 +115,7 @@ def _render_body(zip_path, base_url: str) -> str:
 
 def _issue_block(issue: dict, zip_path, base_url: str) -> str:
     color = _PRIORITY_COLOR.get(issue["priority"], "#64748b")
-    due = f'<span style="color:#dc2626;font-size:12px">Due: {issue["due"]}</span>' if issue.get("due") else ""
+    due = f'<span style="color:#dc2626;font-size:12px">Due: {escape(str(issue["due"]))}</span>' if issue.get("due") else ""
     body_html = _render_body(zip_path, base_url)
     body_section = (
         f'<div style="margin:10px 0 0 0;padding:12px;background:#f8fafc;border-radius:6px;'
@@ -123,12 +125,12 @@ def _issue_block(issue: dict, zip_path, base_url: str) -> str:
     return f"""
 <div style="margin-bottom:24px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;background:#fff">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-    <a href="{base_url}/issues/{issue['id']}"
+    <a href="{escape(base_url)}/issues/{escape(str(issue['id']))}"
        style="color:#2563eb;text-decoration:none;font-weight:600;font-size:15px">
-      {issue['title'] or '(no title)'}
+      {escape(issue['title'] or '(no title)')}
     </a>
     <span style="padding:2px 6px;border-radius:4px;background:{color};color:#fff;font-size:11px">
-      {issue['priority']}
+      {escape(str(issue['priority']))}
     </span>
     {due}
   </div>
@@ -144,11 +146,11 @@ def _build_email(title: str, intro: str, issues: list[dict], zip_dir, base_url: 
         blocks += _issue_block(issue, zip_path, base_url)
     return f"""
 <html><body style="font-family:system-ui,sans-serif;color:#1e293b;max-width:640px;margin:0 auto;padding:24px">
-<h2 style="color:#2563eb;margin-bottom:4px">☸ {site_name} — {title}</h2>
-<p style="color:#64748b;margin-top:0">{intro}</p>
+<h2 style="color:#2563eb;margin-bottom:4px">☸ {escape(site_name)} — {escape(title)}</h2>
+<p style="color:#64748b;margin-top:0">{escape(intro)}</p>
 {blocks}
 <p style="margin-top:24px;font-size:12px;color:#94a3b8">
-  <a href="{base_url}/issues" style="color:#2563eb">Open {site_name}</a>
+  <a href="{escape(base_url)}/issues" style="color:#2563eb">Open {escape(site_name)}</a>
 </p>
 </body></html>"""
 

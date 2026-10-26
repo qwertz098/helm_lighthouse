@@ -1,6 +1,7 @@
 """Read and write issue ZIP files (YAML front-matter + Markdown body + assets)."""
 import io
 import json
+import re
 import uuid
 import zipfile
 from datetime import datetime, timezone
@@ -15,6 +16,31 @@ ATTACHMENTS_DIR = "attachments/"
 SIGNATURE_PATH = "signature/signature.png"
 
 SEPARATOR = "---"
+
+_SAFE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
+def is_safe_id(value: str) -> bool:
+    """True if value can be used verbatim in a file name (no traversal)."""
+    return bool(value) and _SAFE_ID.fullmatch(value) is not None
+
+
+def rewrite_issue_meta(zip_path: Path, updates: dict[str, Any], remove: tuple[str, ...] = ()) -> dict[str, Any]:
+    """Patch front-matter keys in place without touching `modified`."""
+    meta, body = read_issue(zip_path)
+    meta.update(updates)
+    for k in remove:
+        meta.pop(k, None)
+    existing: dict[str, bytes] = {}
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        for name in zf.namelist():
+            if name != ISSUE_MD:
+                existing[name] = zf.read(name)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(ISSUE_MD, (_build_frontmatter(meta) + body).encode("utf-8"))
+        for name, data in existing.items():
+            zf.writestr(name, data)
+    return meta
 
 
 def _now_iso() -> str:
@@ -94,6 +120,7 @@ def add_image(zip_path: Path, filename: str, data: bytes) -> str:
 
 
 def add_attachment(zip_path: Path, filename: str, data: bytes) -> str:
+    filename = Path(filename.replace("\\", "/")).name.replace('"', "_") or "file"
     in_zip = ATTACHMENTS_DIR + filename
     _append_to_zip(zip_path, in_zip, data)
     return in_zip

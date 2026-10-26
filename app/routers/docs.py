@@ -1,5 +1,5 @@
 ﻿from ..templates import templates
-import markdown
+import html
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 
@@ -12,6 +12,7 @@ from ..services.doc_store import (
     list_dir,
     save_file,
 )
+from ..services.markdown_render import render_markdown
 
 router = APIRouter(prefix="/files")
 
@@ -38,7 +39,11 @@ async def raw_file(path: str = ""):
         data, mime = get_file(cfg.docs_dir, path)
     except (ValueError, FileNotFoundError):
         raise HTTPException(404)
-    return Response(content=data, media_type=mime)
+    # sandbox: an uploaded SVG/HTML opened directly cannot run script on our origin
+    return Response(content=data, media_type=mime, headers={
+        "Content-Security-Policy": "sandbox",
+        "X-Content-Type-Options": "nosniff",
+    })
 
 
 @router.get("/preview", response_class=HTMLResponse)
@@ -54,9 +59,9 @@ async def preview(request: Request, path: str = ""):
 
     rendered_md = None
     if suffix == ".md":
-        rendered_md = markdown.markdown(data.decode("utf-8"), extensions=["fenced_code", "tables"])
+        rendered_md = render_markdown(data.decode("utf-8"))
     elif suffix == ".txt":
-        rendered_md = data.decode("utf-8")
+        rendered_md = html.escape(data.decode("utf-8"))
 
     return templates.TemplateResponse(
         request,

@@ -87,9 +87,12 @@ def load(path: Path) -> tuple[list[dict[str, Any]], str]:
     raw = path.read_text(encoding="utf-8")
     data = yaml.safe_load(raw) or {}
     entries = data.get("entries") or []
-    # Ensure all required fields exist
+    missing_ids = False
     for e in entries:
-        e.setdefault("id", str(uuid.uuid4()))
+        if not e.get("id"):
+            e["id"] = str(uuid.uuid4())
+            missing_ids = True
+        e["id"] = str(e["id"])
         e.setdefault("type", "link")
         e.setdefault("name", "Unnamed")
         e.setdefault("url", "")
@@ -101,15 +104,20 @@ def load(path: Path) -> tuple[list[dict[str, Any]], str]:
         e.setdefault("group", "")
         e.setdefault("chart_views", "")
         e.setdefault("enabled", True)
+    if missing_ids:
+        # Persist now, otherwise every load invents new ids and edit/delete never match
+        _write_entries(path, entries)
+        raw = path.read_text(encoding="utf-8")
     return entries, raw
 
 
 def save_raw(path: Path, raw: str) -> list[dict[str, Any]]:
     """Validate and save raw YAML text. Returns parsed entries."""
     data = yaml.safe_load(raw)  # raises on invalid YAML
-    entries = (data or {}).get("entries") or []
+    if data is not None and not isinstance(data, dict):
+        raise ValueError("Top level must be a mapping with an 'entries' list")
     path.write_text(raw, encoding="utf-8")
-    return entries
+    return load(path)[0]
 
 
 def add_entry(path: Path, entry: dict[str, Any]) -> list[dict[str, Any]]:

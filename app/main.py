@@ -37,10 +37,9 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
             try:
                 decoded = base64.b64decode(auth[6:]).decode("utf-8", errors="replace")
                 username, _, password = decoded.partition(":")
-                ok = (
-                    secrets.compare_digest(username, cfg.admin_user)
-                    and secrets.compare_digest(password, cfg.admin_password)
-                )
+                user_ok = secrets.compare_digest(username.encode(), cfg.admin_user.encode())
+                pw_ok = secrets.compare_digest(password.encode(), cfg.admin_password.encode())
+                ok = user_ok and pw_ok
                 if ok:
                     return await call_next(request)
             except Exception:
@@ -84,7 +83,8 @@ try:
 except Exception:
     _raw = {}
 
-_is_lighthouse = (_raw or {}).get("mode") == "lighthouse"
+# Must mirror load_config(): the HELM_MODE env var overrides the file
+_is_lighthouse = (_os.environ.get("HELM_MODE") or (_raw or {}).get("mode")) == "lighthouse"
 
 app = FastAPI(title="Helm", lifespan=lifespan)
 app.add_middleware(BasicAuthMiddleware)

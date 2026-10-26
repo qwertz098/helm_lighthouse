@@ -7,7 +7,7 @@ from pathlib import Path
 def _safe_path(base: Path, rel: str) -> Path:
     """Resolve rel relative to base, raise ValueError on traversal."""
     target = (base / rel).resolve()
-    if not str(target).startswith(str(base.resolve())):
+    if not target.is_relative_to(base.resolve()):
         raise ValueError("Path traversal detected")
     return target
 
@@ -90,6 +90,8 @@ def get_file(base: Path, rel: str) -> tuple[bytes, str]:
 
 def delete_path(base: Path, rel: str):
     target = _safe_path(base, rel)
+    if target == base.resolve():
+        raise ValueError("Refusing to delete the document root")
     if not target.exists():
         raise FileNotFoundError(rel)
     if target.is_dir():

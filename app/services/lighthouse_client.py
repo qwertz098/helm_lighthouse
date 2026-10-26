@@ -108,50 +108,49 @@ async def pull_changes(cfg, db, issues_dir: Path) -> None:
         return
     try:
         import httpx
-        from ..services.issue_store import write_issue, _parse_issue_md, ISSUE_MD
-        import zipfile as zf_mod
         from ..services.issue_index import upsert_issue
+        from ..services.issue_store import is_safe_id, read_issue, rewrite_issue_meta
 
         state = _load_state()
 
         for target in cfg.lighthouses:
             if not target.url or not target.token:
                 continue
+            base = target.url.rstrip("/")
             since_key = f"last_pull_{target.url}"
             since = state.get(since_key, "1970-01-01T00:00:00+00:00")
+            headers = {"Authorization": f"Bearer {target.token}"}
 
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=30, headers=headers) as client:
                 resp = await client.get(
-                    target.url.rstrip("/") + "/api/sync/issues",
-                    headers={"Authorization": f"Bearer {target.token}"},
+                    base + "/api/sync/issues",
                     params={"site": cfg.site_id, "since": since},
                 )
-            if resp.status_code != 200:
-                continue
-
-            for item in resp.json():
-                origin_id = item["id"]
-                lh_modified = item.get("modified", "")
-                zip_url = item.get("zip_url", "")
-                if not zip_url:
+                if resp.status_code != 200:
                     continue
 
-                local_zip = issues_dir / f"issue-{origin_id}.zip"
-                if local_zip.exists():
-                    from ..services.issue_store import read_issue
-                    meta, _ = read_issue(local_zip)
-                    if meta.get("modified", "") >= lh_modified:
+                for item in resp.json():
+                    issue_id = str(item.get("id", ""))
+                    lh_local_id = str(item.get("local_id", ""))
+                    # both end up in a file name / URL path
+                    if not is_safe_id(issue_id) or not is_safe_id(lh_local_id):
+                        continue
+                    lh_modified = item.get("modified", "")
+
+                    local_zip = issues_dir / f"issue-{issue_id}.zip"
+                    if local_zip.exists():
+                        meta, _ = read_issue(local_zip)
+                        if meta.get("modified", "") >= lh_modified:
+                            continue
+
+                    # Build the URL ourselves so the token only goes to the configured host
+                    dl = await client.get(f"{base}/api/sync/issues/{lh_local_id}/zip")
+                    if dl.status_code != 200:
                         continue
 
-                async with httpx.AsyncClient(timeout=30) as client:
-                    dl = await client.get(zip_url, headers={"Authorization": f"Bearer {target.token}"})
-                if dl.status_code != 200:
-                    continue
-
-                local_zip.write_bytes(dl.content)
-                from ..services.issue_store import read_issue
-                meta, _ = read_issue(local_zip)
-                if meta.get("id"):
+                    local_zip.write_bytes(dl.content)
+                    # The Lighthouse copy carries its own local id; restore ours
+                    meta = rewrite_issue_meta(local_zip, {"id": issue_id}, remove=("origin_site", "origin_id"))
                     await upsert_issue(db, meta, str(local_zip))
 
             state[since_key] = _now_iso()
