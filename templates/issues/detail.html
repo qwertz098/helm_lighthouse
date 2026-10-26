@@ -1,0 +1,609 @@
+﻿{% extends "base.html" %}
+{% set active = "issues" %}
+{% block title %}{{ meta.title or 'Issue' }} — Helm{% endblock %}
+
+{% block head %}
+<script src="/static/tiptap.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js"></script>
+<style>
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+/* image captions */
+.tiptap figure { margin: 12px 0; display: inline-block; max-width: 100%; }
+.tiptap figure img { display: block; max-width: 100%; border-radius: 6px; }
+.tiptap figure figcaption { font-size: 12px; color: #64748b; text-align: center; margin-top: 4px; }
+.tiptap figure figcaption:empty::before { content: 'Click to add caption…'; opacity: 0.45; }
+/* @mention autocomplete */
+#mention-dropdown {
+  position: fixed; z-index: 999; background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); min-width: 220px;
+  max-height: 220px; overflow-y: auto; display: none;
+}
+#mention-dropdown .mention-item {
+  padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f1f5f9;
+}
+#mention-dropdown .mention-item:last-child { border-bottom: none; }
+#mention-dropdown .mention-item:hover,
+#mention-dropdown .mention-item.active { background: #eff6ff; color: #2563eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-3" style="margin-bottom:20px">
+  <a href="/issues" class="btn btn-secondary btn-sm">← Back</a>
+  <h1 class="page-title" style="flex:1;display:flex;align-items:center;gap:8px" id="page-title">
+    {{ meta.title or 'Edit Issue' }}
+    {% if meta.type == 'report' %}<span class="badge" style="background:#6366f1;color:#fff;font-size:0.7rem;vertical-align:middle">Report</span>{% endif %}
+    {% if meta.signed_at %}<span title="Signed {{ meta.signed_at }}" style="font-size:0.85rem;font-weight:400">🔒</span>{% endif %}
+  </h1>
+  <span id="save-status"></span>
+  <a href="/issues/{{ issue_id }}/pdf" target="_blank" class="btn btn-secondary btn-sm">Export PDF</a>
+  {% if not meta.signed_at %}
+  <button id="save-btn" class="btn btn-primary">Save</button>
+  {% endif %}
+</div>
+
+<div style="display:flex;flex-direction:column;gap:16px">
+
+  <!-- ── Metadata (multi-column) ── -->
+  <div class="card">
+    <div class="card-body" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr{% if sites %} 1fr{% endif %};gap:14px;align-items:end">
+
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input type="text" id="meta-title" class="form-control" value="{{ meta.title or '' }}" placeholder="Issue title">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="meta-status" class="form-control">
+          <option value="open" {% if meta.status == 'open' %}selected{% endif %}>Open</option>
+          <option value="in_progress" {% if meta.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+          <option value="closed" {% if meta.status == 'closed' %}selected{% endif %}>Closed</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select id="meta-priority" class="form-control">
+          <option value="low" {% if meta.priority == 'low' %}selected{% endif %}>Low</option>
+          <option value="medium" {% if meta.priority == 'medium' %}selected{% endif %}>Medium</option>
+          <option value="high" {% if meta.priority == 'high' %}selected{% endif %}>High</option>
+          <option value="critical" {% if meta.priority == 'critical' %}selected{% endif %}>Critical</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Due date</label>
+        <input type="date" id="meta-due" class="form-control" value="{{ meta.due or '' }}">
+      </div>
+
+      {% if sites %}
+      <div class="form-group">
+        <label class="form-label">Site</label>
+        <select id="meta-site" class="form-control">
+          <option value="">— unassigned —</option>
+          {% for s in sites %}
+          <option value="{{ s.id }}" {% if meta.origin_site == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label">Tags</label>
+        <div class="tag-input-wrapper" id="tag-wrapper">
+          {% for tag in (meta.tags or []) %}
+          <span class="tag-pill" data-tag="{{ tag }}">{{ tag }}<button type="button" class="tag-remove">×</button></span>
+          {% endfor %}
+          <input type="text" id="tag-text-input" placeholder="Tag + Enter" autocomplete="off">
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {% if meta.type == 'report' %}
+  {% include "issues/_report_fields.html" %}
+  {% endif %}
+
+  <!-- ── Editor ── -->
+  <div class="editor-wrapper card">
+    <div class="editor-toolbar" id="toolbar">
+      <button class="toolbar-btn" data-action="bold" title="Bold"><b>B</b></button>
+      <button class="toolbar-btn" data-action="italic" title="Italic"><i>I</i></button>
+      <button class="toolbar-btn" data-action="strike" title="Strikethrough"><s>S</s></button>
+      <button class="toolbar-btn" data-action="code" title="Inline code"><code style="font-size:12px">{ }</code></button>
+      <div class="toolbar-sep"></div>
+      <button class="toolbar-btn" data-action="h1" title="Heading 1">H1</button>
+      <button class="toolbar-btn" data-action="h2" title="Heading 2">H2</button>
+      <button class="toolbar-btn" data-action="h3" title="Heading 3">H3</button>
+      <div class="toolbar-sep"></div>
+      <button class="toolbar-btn" data-action="bulletList" title="Bullet list">≡</button>
+      <button class="toolbar-btn" data-action="orderedList" title="Ordered list">1.</button>
+      <button class="toolbar-btn" data-action="blockquote" title="Blockquote">❝</button>
+      <button class="toolbar-btn" data-action="codeBlock" title="Code block">&lt;/&gt;</button>
+      <div class="toolbar-sep"></div>
+      <button class="toolbar-btn" data-action="hr" title="Horizontal rule">—</button>
+      <button class="toolbar-btn" data-action="link" title="Link">🔗</button>
+      <button class="toolbar-btn" data-action="image" title="Insert image">🖼</button>
+      <input type="file" id="img-upload" accept="image/*" style="display:none">
+      <div style="flex:1"></div>
+      <button class="toolbar-btn" id="raw-copy-btn" title="Copy raw YAML+Markdown to clipboard"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="9" y="9" width="13" height="13" rx="0"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Raw</button>
+      <button class="toolbar-btn" id="raw-paste-btn" title="Paste raw YAML+Markdown from clipboard"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="4" y="6" width="16" height="16" rx="0"/><rect x="8" y="2" width="8" height="6" rx="0"/></svg> Paste Raw</button>
+    </div>
+
+    <div id="editor"></div>
+  </div>
+
+  <!-- ── Attachments ── -->
+  <div class="card">
+    <div class="card-header"><strong>Attachments</strong></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px">
+      <div id="attachments-container">
+        {% include "issues/_attachments.html" %}
+      </div>
+      <form id="attach-form"
+            hx-post="/issues/{{ issue_id }}/attachments"
+            hx-target="#attachments-container"
+            hx-encoding="multipart/form-data"
+            hx-swap="innerHTML">
+        <input type="file" name="file" id="attach-input" style="display:none" multiple>
+        <div id="attach-dropzone"
+             onclick="document.getElementById('attach-input').click()"
+             ondragover="event.preventDefault();this.classList.add('dropzone-over')"
+             ondragleave="this.classList.remove('dropzone-over')"
+             ondrop="event.preventDefault();this.classList.remove('dropzone-over');
+                     document.getElementById('attach-input').files=event.dataTransfer.files;
+                     htmx.trigger('#attach-form','submit')">
+          <span style="font-size:18px">📎</span>
+          <span>Drop files here or <u>browse</u></span>
+        </div>
+        <button type="submit" id="attach-submit" style="display:none"></button>
+      </form>
+      <script>
+        document.getElementById('attach-input').addEventListener('change', () => {
+          if (document.getElementById('attach-input').files.length)
+            htmx.trigger(document.getElementById('attach-form'), 'submit');
+        });
+      </script>
+    </div>
+  </div>
+
+</div>
+
+<!-- @mention dropdown -->
+<div id="mention-dropdown"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const { TiptapEditor: Editor, TiptapStarterKit: StarterKit, TiptapImage: Image, TiptapLink: Link, TiptapPlaceholder: Placeholder } = window;
+
+const ISSUE_ID = {{ issue_id | tojson }};
+const INITIAL_BODY = {{ body | tojson }};
+const INITIAL_META = {{ meta | tojson }};
+const IS_REPORT = {{ (meta.type == 'report') | tojson }};
+const IS_SIGNED = {{ (meta.signed_at is not none and meta.signed_at) | tojson }};
+
+// ── Markdown → HTML ──────────────────────────────────────────────────────────
+function mdToHtml(md) {
+  if (!md) return '<p></p>';
+  let html = md
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^> (.+)$/gm, '<blockquote><p>$1</p></blockquote>')
+    .replace(/^---$/gm, '<hr>')
+    .replace(/^- \[x\] (.+)$/gm, '<li class="task-item"><label><input type="checkbox" checked data-task> $1</label></li>')
+    .replace(/^- \[ \] (.+)$/gm, '<li class="task-item"><label><input type="checkbox" data-task> $1</label></li>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) =>
+      alt ? `<figure><img src="${src}" alt="${alt}"><figcaption>${alt}</figcaption></figure>`
+          : `<img src="${src}" alt="">`)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  html = html.replace(/(<li>.*?<\/li>\n?)+/gs, m => '<ul>' + m + '</ul>');
+  html = html.split('\n').map(line => {
+    if (!line.trim()) return '';
+    if (/^<(h[1-3]|ul|ol|li|blockquote|pre|hr|figure|img)/.test(line)) return line;
+    return '<p>' + line + '</p>';
+  }).join('');
+  return html || '<p></p>';
+}
+
+// ── Editor ───────────────────────────────────────────────────────────────────
+// Use let + try/catch so a failed init (missing bundle, undefined constructor)
+// does NOT abort the rest of the script and leave later consts in TDZ.
+let editor = null;
+try {
+  editor = new Editor({
+    element: document.getElementById('editor'),
+    extensions: [
+      StarterKit,
+      Image.configure({ inline: false, allowBase64: false }),
+      Link.configure({ openOnClick: false }),
+      Placeholder.configure({ placeholder: 'Issue description … (type @ to link another issue)' }),
+    ],
+    content: mdToHtml(INITIAL_BODY),
+    onUpdate: () => { updateToolbar(); detectMention(); },
+    onSelectionUpdate: () => { updateToolbar(); checkImageSelected(); },
+  });
+} catch (e) {
+  console.error('TipTap editor failed to initialise:', e);
+}
+
+function updateToolbar() {
+  document.querySelectorAll('.toolbar-btn[data-action]').forEach(btn => {
+    const a = btn.dataset.action;
+    let active = false;
+    if (a === 'h1') active = editor.isActive('heading', { level: 1 });
+    else if (a === 'h2') active = editor.isActive('heading', { level: 2 });
+    else if (a === 'h3') active = editor.isActive('heading', { level: 3 });
+    else if (a === 'hr' || a === 'link' || a === 'image') active = false;
+    else active = editor.isActive(a);
+    btn.classList.toggle('is-active', active);
+  });
+}
+
+document.getElementById('toolbar').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const a = btn.dataset.action;
+  if (a === 'bold')        editor.chain().focus().toggleBold().run();
+  else if (a === 'italic') editor.chain().focus().toggleItalic().run();
+  else if (a === 'strike') editor.chain().focus().toggleStrike().run();
+  else if (a === 'code')   editor.chain().focus().toggleCode().run();
+  else if (a === 'h1')     editor.chain().focus().toggleHeading({ level: 1 }).run();
+  else if (a === 'h2')     editor.chain().focus().toggleHeading({ level: 2 }).run();
+  else if (a === 'h3')     editor.chain().focus().toggleHeading({ level: 3 }).run();
+  else if (a === 'bulletList')  editor.chain().focus().toggleBulletList().run();
+  else if (a === 'orderedList') editor.chain().focus().toggleOrderedList().run();
+  else if (a === 'blockquote')  editor.chain().focus().toggleBlockquote().run();
+  else if (a === 'codeBlock')   editor.chain().focus().toggleCodeBlock().run();
+  else if (a === 'hr')     editor.chain().focus().setHorizontalRule().run();
+  else if (a === 'link') {
+    const url = prompt('Enter URL:');
+    if (url) editor.chain().focus().setLink({ href: url }).run();
+  }
+  else if (a === 'image')  document.getElementById('img-upload').click();
+});
+
+document.getElementById('img-upload').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (file) { await uploadAndInsertImage(file); e.target.value = ''; }
+});
+
+document.getElementById('editor').addEventListener('paste', async e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      await uploadAndInsertImage(item.getAsFile());
+      return;
+    }
+  }
+});
+
+async function uploadAndInsertImage(file) {
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const fd = new FormData();
+    fd.append('data', ev.target.result);
+    fd.append('filename', file.name);
+    const res = await fetch(`/issues/${ISSUE_ID}/images`, { method: 'POST', body: fd });
+    if (!res.ok) return;
+    const { url } = await res.json();
+    const caption = prompt('Image caption (optional):') || '';
+    // Insert as figure with figcaption via raw HTML, or plain img if no caption
+    if (caption) {
+      editor.chain().focus().insertContent(
+        `<figure><img src="${url}" alt="${caption.replace(/"/g,'&quot;')}"><figcaption>${caption}</figcaption></figure>`
+      ).run();
+    } else {
+      editor.chain().focus().setImage({ src: url, alt: '' }).run();
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Image caption — click figcaption to edit ─────────────────────────────────
+document.getElementById('editor').addEventListener('click', e => {
+  const fc = e.target.closest('figcaption');
+  if (fc) {
+    fc.contentEditable = 'true';
+    fc.focus();
+    fc.onblur = () => {
+      fc.contentEditable = 'false';
+      // sync alt attribute on sibling img
+      const img = fc.closest('figure')?.querySelector('img');
+      if (img) img.alt = fc.textContent;
+    };
+  }
+});
+
+// ── Image selected indicator ─────────────────────────────────────────────────
+function checkImageSelected() {
+  // nothing extra needed — figcaption click handles it
+}
+
+// ── @mention ─────────────────────────────────────────────────────────────────
+let mentionItems = [];
+let mentionIndex = 0;
+let mentionActive = false;
+let mentionFromPos = null;   // ProseMirror doc position of the @ sign
+const dropdown = document.getElementById('mention-dropdown');
+
+function detectMention() {
+  try {
+    const { state } = editor.view;
+    const { $from } = state.selection;
+    // text content of the current paragraph up to cursor
+    const textBefore = $from.parent.textContent.slice(0, $from.parentOffset);
+    const atIdx = textBefore.lastIndexOf('@');
+    if (atIdx === -1) { closeMentionDropdown(); return; }
+    const query = textBefore.slice(atIdx + 1);
+    if (/\s/.test(query)) { closeMentionDropdown(); return; } // space after @ → not a mention
+    // $from.start() = PM position of paragraph start (after opening token)
+    mentionFromPos = $from.start() + atIdx;
+    fetchMentions(query);
+  } catch (_) {
+    closeMentionDropdown();
+  }
+}
+
+async function fetchMentions(q) {
+  const res = await fetch(`/issues/autocomplete?q=${encodeURIComponent(q)}`);
+  if (!res.ok) return;
+  mentionItems = await res.json();
+  mentionIndex = 0;
+  renderMentionDropdown();
+}
+
+function renderMentionDropdown() {
+  if (!mentionItems.length) { closeMentionDropdown(); return; }
+
+  // Position below the '@' character using ProseMirror coords
+  let left = 100, top = 200;
+  try {
+    const c = editor.view.coordsAtPos(mentionFromPos);
+    left = c.left;
+    top = c.bottom + 6;
+  } catch (_) {}
+
+  dropdown.innerHTML = mentionItems.map((item, i) =>
+    `<div class="mention-item${i === mentionIndex ? ' active' : ''}" data-i="${i}">` +
+    `<span style="color:#94a3b8;font-size:11px">#${item.id.slice(0,6)}</span> ${item.title}</div>`
+  ).join('');
+  dropdown.style.left = left + 'px';
+  dropdown.style.top = top + 'px';
+  dropdown.style.display = 'block';
+  mentionActive = true;
+
+  dropdown.querySelectorAll('.mention-item').forEach(el =>
+    el.addEventListener('mousedown', e => { e.preventDefault(); selectMention(+el.dataset.i); })
+  );
+}
+
+function selectMention(i) {
+  const item = mentionItems[i];
+  if (!item) return;
+  const { state, dispatch } = editor.view;
+  const deleteFrom = mentionFromPos;
+  const deleteTo = state.selection.from;
+  const text = `#${item.title}`;
+  const href = `/issues/${item.id}`;
+  const tr = state.tr.delete(deleteFrom, deleteTo);
+  const linkMark = state.schema.marks.link.create({ href });
+  tr.insert(deleteFrom, state.schema.text(text, [linkMark]));
+  // insert a plain space after the link so cursor leaves the mark
+  tr.insert(deleteFrom + text.length, state.schema.text(' '));
+  dispatch(tr);
+  editor.view.focus();
+  closeMentionDropdown();
+}
+
+function closeMentionDropdown() {
+  dropdown.style.display = 'none';
+  mentionItems = [];
+  mentionActive = false;
+  mentionFromPos = null;
+}
+
+editor.view.dom.addEventListener('keydown', e => {
+  if (!mentionActive) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    mentionIndex = Math.min(mentionIndex + 1, mentionItems.length - 1);
+    renderMentionDropdown();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    mentionIndex = Math.max(mentionIndex - 1, 0);
+    renderMentionDropdown();
+  } else if (e.key === 'Enter' || e.key === 'Tab') {
+    if (mentionItems.length) { e.preventDefault(); selectMention(mentionIndex); }
+  } else if (e.key === 'Escape') {
+    closeMentionDropdown();
+  }
+});
+document.addEventListener('click', e => {
+  if (!dropdown.contains(e.target)) closeMentionDropdown();
+});
+
+// ── Tags ─────────────────────────────────────────────────────────────────────
+// Use functions for element lookup so TDZ errors in earlier const declarations
+// (e.g. editor init) cannot make these references inaccessible at call time.
+function _tagWrapper() { return document.getElementById('tag-wrapper'); }
+function _tagInput()   { return document.getElementById('tag-text-input'); }
+
+_tagWrapper()?.addEventListener('click', () => _tagInput()?.focus());
+_tagInput()?.addEventListener('keydown', e => {
+  const input = _tagInput();
+  if ((e.key === 'Enter' || e.key === ',') && input.value.trim()) {
+    e.preventDefault();
+    addTag(input.value.trim().replace(/,/g, ''));
+    input.value = '';
+  } else if (e.key === 'Backspace' && !input.value) {
+    _tagWrapper()?.querySelector('.tag-pill:last-of-type')?.remove();
+  }
+});
+_tagWrapper()?.addEventListener('click', e => {
+  if (e.target.classList.contains('tag-remove')) e.target.closest('.tag-pill').remove();
+});
+function addTag(text) {
+  if (!text) return;
+  const wrapper = _tagWrapper();
+  const input   = _tagInput();
+  if (!wrapper) return;
+  const pill = document.createElement('span');
+  pill.className = 'tag-pill';
+  pill.dataset.tag = text;
+  pill.innerHTML = `${text}<button type="button" class="tag-remove">×</button>`;
+  wrapper.insertBefore(pill, input);
+}
+function getTags() {
+  return [...(_tagWrapper()?.querySelectorAll('.tag-pill') ?? [])].map(p => p.dataset.tag);
+}
+
+// ── Attachments ──────────────────────────────────────────────────────────────
+document.getElementById('attach-input').addEventListener('change', () => {
+  document.getElementById('attach-submit').click();
+});
+
+// ── Turndown (HTML → Markdown) ────────────────────────────────────────────────
+let td = null;
+try {
+  td = new TurndownService({ headingStyle: 'atx', bulletListMarker: '-', codeBlockStyle: 'fenced' });
+} catch (e) {
+  console.error('TurndownService failed to initialise:', e);
+}
+if (td) {
+  td.addRule('figure', {
+    filter: 'figure',
+    replacement: (_, node) => {
+      const img = node.querySelector('img');
+      const fc = node.querySelector('figcaption');
+      const src = img?.getAttribute('src') || '';
+      const alt = (fc?.textContent || img?.alt || '').trim();
+      return `\n![${alt}](${src})\n`;
+    },
+  });
+  td.addRule('taskItem', {
+    filter: node => node.nodeName === 'LI' && node.querySelector('input[data-task]'),
+    replacement: (_, node) => {
+      const cb = node.querySelector('input[data-task]');
+      const checked = cb ? cb.checked : false;
+      const label = node.querySelector('label');
+      const text = label ? label.textContent.trim() : node.textContent.trim();
+      return `\n- [${checked ? 'x' : ' '}] ${text}`;
+    },
+  });
+  td.addRule('images', {
+    filter: 'img',
+    replacement: (_, node) => `![${node.alt || ''}](${node.getAttribute('src')})`,
+  });
+}
+
+// ── Raw copy / paste ─────────────────────────────────────────────────────────
+function buildRaw() {
+  const tags = getTags();
+  const due = document.getElementById('meta-due').value;
+  const yaml = [
+    '---',
+    `id: ${ISSUE_ID}`,
+    `title: "${document.getElementById('meta-title').value.replace(/"/g, '\\"')}"`,
+    `status: ${document.getElementById('meta-status').value}`,
+    `priority: ${document.getElementById('meta-priority').value}`,
+    `tags: [${tags.map(t => `"${t}"`).join(', ')}]`,
+    due ? `due: ${due}` : 'due: null',
+    `created: ${INITIAL_META.created || ''}`,
+    '---',
+    '',
+  ].join('\n');
+  return yaml + td.turndown(editor.getHTML());
+}
+
+function applyRaw(raw) {
+  const match = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!match) { alert('Could not parse — must start with ---\\nfront-matter\\n---'); return; }
+  const fm = match[1];
+  const body = match[2].trim();
+  const get = key => { const m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm')); return m ? m[1].trim() : ''; };
+  const title = get('title').replace(/^"(.*)"$/, '$1');
+  const status = get('status');
+  const priority = get('priority');
+  const due = get('due').replace(/null/, '');
+  const tagsMatch = fm.match(/^tags:\s*\[(.*)\]$/m);
+  const tags = tagsMatch ? tagsMatch[1].split(',').map(t => t.trim().replace(/^"|"$/g, '')).filter(Boolean) : [];
+  document.getElementById('meta-title').value = title;
+  if (status) document.getElementById('meta-status').value = status;
+  if (priority) document.getElementById('meta-priority').value = priority;
+  document.getElementById('meta-due').value = due;
+  _tagWrapper()?.querySelectorAll('.tag-pill').forEach(p => p.remove());
+  tags.forEach(addTag);
+  editor?.commands.setContent(mdToHtml(body));
+}
+
+document.getElementById('raw-copy-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText(buildRaw());
+});
+
+document.getElementById('raw-paste-btn').addEventListener('click', async () => {
+  const text = await navigator.clipboard.readText();
+  applyRaw(text);
+});
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+async function saveIssue() {
+  if (IS_SIGNED) return;
+  const fd = new FormData();
+  fd.append('title', document.getElementById('meta-title').value);
+  fd.append('status', document.getElementById('meta-status').value);
+  fd.append('priority', document.getElementById('meta-priority').value);
+  fd.append('tags', getTags().join(','));
+  fd.append('due', document.getElementById('meta-due').value);
+  fd.append('body', td && editor ? td.turndown(editor.getHTML()) : (INITIAL_BODY || ''));
+  const siteEl = document.getElementById('meta-site');
+  if (siteEl) fd.append('origin_site', siteEl.value);
+  if (IS_REPORT && typeof collectReportData === 'function') {
+    fd.append('report_data', JSON.stringify(collectReportData()));
+  }
+
+  const res = await fetch(`/issues/${ISSUE_ID}/save`, { method: 'POST', body: fd });
+  const status = document.getElementById('save-status');
+  if (res.ok) {
+    status.innerHTML = '<span class="save-ok">Saved ✓</span>';
+    document.getElementById('page-title').textContent = document.getElementById('meta-title').value || 'Edit Issue';
+    document.title = (document.getElementById('meta-title').value || 'Issue') + ' — Helm';
+    setTimeout(() => status.innerHTML = '', 2500);
+  } else {
+    status.innerHTML = '<span style="color:#dc2626">Save failed</span>';
+  }
+}
+
+// Click below last line → move cursor to end
+document.getElementById('editor').addEventListener('click', e => {
+  const editorEl = document.getElementById('editor');
+  const lastNode = editorEl.querySelector('.tiptap').lastElementChild;
+  if (!lastNode) return;
+  if (e.clientY > lastNode.getBoundingClientRect().bottom) {
+    editor.commands.focus('end');
+  }
+});
+
+document.getElementById('save-btn')?.addEventListener('click', saveIssue);
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveIssue(); }
+});
+</script>
+{% endblock %}
+

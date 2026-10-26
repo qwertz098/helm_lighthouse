@@ -1,0 +1,42 @@
+{% set status_labels = {'open': 'Open', 'in_progress': 'In Progress', 'closed': 'Closed'} %}
+{% set priority_labels = {'low': 'Low', 'medium': 'Medium', 'high': 'High', 'critical': 'Critical'} %}
+
+{% if issues %}
+<div class="issue-list">
+  {% for issue in issues %}
+  <div class="issue-row">
+    <div>
+      <div class="issue-title">
+        <a href="/issues/{{ issue.id }}">{{ issue.title or '(No title)' }}</a>
+        {% if issue.type == 'report' %}<span class="badge" style="background:#6366f1;color:#fff;font-size:0.7rem;margin-left:4px">Report</span>{% endif %}
+        {% if issue.signed_at %}<span title="Signed {{ issue.signed_at[:10] }}" style="margin-left:4px">🔒</span>{% endif %}
+      </div>
+      <div class="issue-meta">
+        <span>Created: {{ issue.created[:10] }}</span>
+        <span>Modified: {{ issue.modified[:10] }}</span>
+        {% if issue.due %}<span style="color:{% if issue.due < today %}#dc2626{% else %}#64748b{% endif %}">Due: {{ issue.due }}</span>{% endif %}
+        {% if issue.tags %}
+        <span class="issue-tags">
+          {% for tag in issue.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <span class="badge badge-{{ issue.priority }}">{{ priority_labels.get(issue.priority, issue.priority) }}</span>
+    <span class="badge badge-{{ issue.status }}">{{ status_labels.get(issue.status, issue.status) }}</span>
+    {% if issue.type != 'report' %}
+    <button class="btn btn-sm btn-danger"
+            hx-delete="/issues/{{ issue.id }}"
+            hx-confirm="Delete this issue?"
+            hx-target="closest .issue-row"
+            hx-swap="outerHTML">✕</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <strong>No issues found</strong>
+  <p>Adjust the filters or create a new issue.</p>
+</div>
+{% endif %}

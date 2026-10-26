@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ meta.title or 'Issue' }}</title>
+  {% set r = meta.report or {} %}
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #1e293b; margin: 0; padding: 32px 40px; font-size: 13px; line-height: 1.5; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    h2 { font-size: 16px; margin: 22px 0 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+    h3 { font-size: 14px; margin: 16px 0 6px; }
+    .doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 10px; margin-bottom: 18px; }
+    .doc-header .site { font-size: 12px; color: #64748b; }
+    .meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 18px; margin-bottom: 8px; }
+    .meta-grid .label { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #94a3b8; }
+    .meta-grid .value { font-weight: 600; }
+    .badge { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+    th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+    th { color: #64748b; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+    .num { text-align: right; }
+    .body-content img { max-width: 100%; }
+    .body-content ul { padding-left: 20px; }
+    .sig-box { margin-top: 8px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; display: inline-block; }
+    .sig-box img { max-width: 360px; max-height: 130px; display: block; }
+    .sig-line { margin-top: 30px; border-top: 1px solid #1e293b; width: 280px; padding-top: 4px; font-size: 11px; color: #64748b; }
+    .muted { color: #64748b; }
+    @media print {
+      body { padding: 0; }
+      .no-print { display: none !important; }
+      @page { margin: 18mm; }
+    }
+    .toolbar { position: fixed; top: 12px; right: 12px; }
+    .toolbar button { padding: 8px 16px; border: 1px solid #2563eb; background: #2563eb; color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button onclick="window.print()">Print / Save as PDF</button>
+  </div>
+
+  <div class="doc-header">
+    <div>
+      <h1>{{ meta.title or '(Untitled)' }}</h1>
+      <div class="muted">
+        {% if meta.type == 'report' %}<span class="badge" style="background:#6366f1;color:#fff">Report</span>{% endif %}
+        ID {{ meta.id[:8] }}
+        {% if meta.signed_at %} · 🔒 Signed {{ meta.signed_at[:10] }}{% endif %}
+      </div>
+    </div>
+    <div class="site">{{ site_name }}</div>
+  </div>
+
+  <div class="meta-grid">
+    <div><div class="label">Status</div><div class="value">{{ meta.status }}</div></div>
+    <div><div class="label">Priority</div><div class="value">{{ meta.priority }}</div></div>
+    {% if meta.due %}<div><div class="label">Due</div><div class="value">{{ meta.due }}</div></div>{% endif %}
+    <div><div class="label">Created</div><div class="value">{{ (meta.created or '')[:10] }}</div></div>
+    <div><div class="label">Modified</div><div class="value">{{ (meta.modified or '')[:10] }}</div></div>
+    {% if meta.tags %}<div style="grid-column:1/-1"><div class="label">Tags</div><div class="value">{{ meta.tags | join(', ') }}</div></div>{% endif %}
+  </div>
+
+  {% if meta.type == 'report' and meta.report %}
+  <h2>Service Report</h2>
+  <div class="meta-grid">
+    {% if r.date %}<div><div class="label">Date</div><div class="value">{{ r.date }}</div></div>{% endif %}
+    {% if r.start %}<div><div class="label">From</div><div class="value">{{ r.start }}</div></div>{% endif %}
+    {% if r.end %}<div><div class="label">To</div><div class="value">{{ r.end }}</div></div>{% endif %}
+    <div><div class="label">Break (min)</div><div class="value">{{ r.break_minutes or 0 }}</div></div>
+    <div><div class="label">Distance (km)</div><div class="value">{{ r.km or 0 }}</div></div>
+    <div><div class="label">Expenses (€)</div><div class="value">{{ '%.2f' % (r.expenses or 0) }}</div></div>
+  </div>
+
+  {% if r.positions %}
+  <h3>Items</h3>
+  <table>
+    <thead><tr><th>Task</th><th class="num">Hours</th></tr></thead>
+    <tbody>
+      {% set ns = namespace(total=0) %}
+      {% for p in r.positions %}
+      {% set ns.total = ns.total + (p.hours or 0) %}
+      <tr><td>{{ p.description or '' }}</td><td class="num">{{ p.hours or 0 }}</td></tr>
+      {% endfor %}
+      <tr><td style="font-weight:600">Total</td><td class="num" style="font-weight:600">{{ ns.total }} h</td></tr>
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if r.executors %}
+  <h3>Executed by</h3>
+  <table>
+    <thead><tr><th>Name</th><th>Company</th></tr></thead>
+    <tbody>
+      {% for ex in r.executors %}
+      <tr><td>{{ ex.name or '' }}</td><td>{{ ex.company or '' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endif %}
+
+  {% if body_html %}
+  <h2>Details</h2>
+  <div class="body-content">{{ body_html | safe }}</div>
+  {% endif %}
+
+  {% if meta.type == 'report' %}
+  <h2>Signature</h2>
+  {% set signer = r.signer or {} %}
+  <div class="meta-grid">
+    <div><div class="label">Name</div><div class="value">{{ signer.name or '—' }}</div></div>
+    <div><div class="label">Company</div><div class="value">{{ signer.company or '—' }}</div></div>
+  </div>
+  {% if signature_b64 %}
+  <div class="sig-box"><img src="data:image/png;base64,{{ signature_b64 }}" alt="Signature"></div>
+  {% else %}
+  <div class="sig-line">Signature</div>
+  {% endif %}
+  {% endif %}
+
+  <script>
+    // Auto-open the print dialog on load (user picks "Save as PDF")
+    window.addEventListener('load', () => setTimeout(() => window.print(), 350));
+  </script>
+</body>
+</html>

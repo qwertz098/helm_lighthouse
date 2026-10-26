@@ -1,0 +1,26 @@
+services:
+  helm:
+    image: helm-lighthouse
+    restart: unless-stopped
+    ports:
+      - "8001:8080"
+    volumes:
+      - helm-data:/data
+    build: .
+    environment:
+      HELM_MODE: helm
+      HELM_SITE_NAME: Busto
+      SMTP_ENABLED: "true"
+      SMTP_HOST: mail.gmx.net
+      SMTP_PORT: "587"
+      SMTP_TLS: "true"
+      SMTP_USERNAME: user@gmx.de
+      SMTP_PASSWORD: user_passwort
+      SMTP_FROM: user@gmx.de
+      SMTP_TO: "user@gmx.de, empfaenger2@example.com"
+      LIGHTHOUSE_NAME: Lighthouse
+      LIGHTHOUSE_URL: http://lighthouse:8080
+      LIGHTHOUSE_TOKEN: <token-from-lighthouse-settings>
+
+volumes:
+  helm-data:

@@ -1,0 +1,104 @@
+<div style="display:flex;flex-direction:column;gap:8px">
+
+  {% for t in templates %}
+  <div class="card" style="border:1px solid var(--border)" id="tpl-{{ t.id }}">
+    <!-- Collapsed header: name + tags, click to expand -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer"
+         onclick="(function(b){var d=document.getElementById('tpl-body-{{ t.id }}');var open=d.style.display==='none';d.style.display=open?'':'none';b.querySelector('.tpl-caret').textContent=open?'▾':'▸';})(this)">
+      <span class="tpl-caret" style="color:var(--text-muted);width:12px">▸</span>
+      <strong style="flex:1">{{ t.name }}</strong>
+      {% for tag in (t.tags or []) %}<span class="tag" style="font-size:0.72rem">{{ tag }}</span>{% endfor %}
+      <span class="badge badge-{{ t.priority }}" style="font-size:0.7rem">{{ t.priority }}</span>
+    </div>
+
+    <!-- Expandable edit form -->
+    <div id="tpl-body-{{ t.id }}" style="display:none;border-top:1px solid var(--border)">
+      <div class="card-body">
+        <form hx-post="/settings/report/templates/{{ t.id }}"
+              hx-target="#report-templates-container"
+              hx-swap="innerHTML"
+              style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Name</label>
+              <input class="form-control" name="name" value="{{ t.name }}">
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Priority</label>
+              <select class="form-control" name="priority">
+                <option value="low" {% if t.priority=='low' %}selected{% endif %}>Low</option>
+                <option value="medium" {% if t.priority=='medium' %}selected{% endif %}>Medium</option>
+                <option value="high" {% if t.priority=='high' %}selected{% endif %}>High</option>
+                <option value="critical" {% if t.priority=='critical' %}selected{% endif %}>Critical</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Tags (comma-separated)</label>
+              <input class="form-control" name="tags" value="{{ t.tags | join(', ') }}">
+            </div>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Body (Markdown — use <code>- [ ]</code> for checklists)</label>
+            <textarea class="form-control" name="body" rows="6" style="font-family:monospace;font-size:0.85rem">{{ t.body }}</textarea>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn btn-sm btn-danger"
+                    hx-delete="/settings/report/templates/{{ t.id }}"
+                    hx-target="#report-templates-container"
+                    hx-swap="innerHTML"
+                    hx-confirm="Delete this template?">Delete</button>
+            <button type="submit" class="btn btn-sm btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted);font-size:0.9rem">No templates yet.</p>
+  {% endfor %}
+
+  <!-- New template -->
+  <div class="card" style="border:1px dashed var(--border)">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer"
+         onclick="(function(b){var d=document.getElementById('tpl-new');var open=d.style.display==='none';d.style.display=open?'':'none';b.querySelector('.tpl-caret').textContent=open?'▾':'▸';})(this)">
+      <span class="tpl-caret" style="color:var(--text-muted);width:12px">▸</span>
+      <strong style="flex:1">+ New template</strong>
+    </div>
+    <div id="tpl-new" style="display:none;border-top:1px solid var(--border)">
+      <div class="card-body">
+        <form hx-post="/settings/report/templates"
+              hx-target="#report-templates-container"
+              hx-swap="innerHTML"
+              style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Name</label>
+              <input class="form-control" name="name" placeholder="e.g. Elevator maintenance" required>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Priority</label>
+              <select class="form-control" name="priority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label">Tags (comma-separated)</label>
+              <input class="form-control" name="tags" placeholder="maintenance, elevator">
+            </div>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Body</label>
+            <textarea class="form-control" name="body" rows="6" style="font-family:monospace;font-size:0.85rem" placeholder="## Checklist&#10;&#10;- [ ] Item 1&#10;- [ ] Item 2"></textarea>
+          </div>
+          <div style="text-align:right">
+            <button type="submit" class="btn btn-primary btn-sm">Create template</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>

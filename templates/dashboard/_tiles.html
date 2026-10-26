@@ -1,0 +1,204 @@
+{% for group, tiles in groups.items() %}
+<div class="tile-group">
+  <div class="tile-group-label">{{ group }}</div>
+  <div class="tile-grid">
+    {% for tile in tiles %}
+    <div class="tile" id="tile-{{ tile.id }}" data-type="{{ tile.type }}">
+
+      <!-- ── Header row ── -->
+      <div class="tile-header">
+        {% if tile.icon %}
+          <img class="tile-icon" src="{{ tile.icon }}" alt="" onerror="this.style.display='none'">
+        {% elif tile.type == 'camera' %}
+          <span class="tile-icon-emoji">📷</span>
+        {% elif tile.type == 'video' %}
+          <span class="tile-icon-emoji">🎬</span>
+        {% elif tile.type == 'chart' %}
+          <span class="tile-icon-emoji">📊</span>
+        {% elif tile.type == 'vnc' %}
+          <span class="tile-icon-emoji">🖥️</span>
+        {% elif tile.type == 'rdp' %}
+          <span class="tile-icon-emoji">🖥️</span>
+        {% else %}
+          <img class="tile-icon"
+               src="https://www.google.com/s2/favicons?domain={{ tile.url }}&sz=32"
+               alt="" onerror="this.src='/static/link-icon.svg'">
+        {% endif %}
+        <a class="tile-name" href="{{ tile.url }}" target="_blank" rel="noopener">{{ tile.name }}</a>
+        <div class="tile-actions">
+          <button class="tile-btn" title="Expand details"
+                  onclick="toggleDetails('{{ tile.id }}')">＋</button>
+          <button class="tile-btn tile-btn-danger" title="Delete"
+                  hx-delete="/dashboard/entries/{{ tile.id }}"
+                  hx-target="#tiles-container"
+                  hx-confirm="Delete '{{ tile.name }}'?">✕</button>
+        </div>
+      </div>
+
+      <!-- ── Chart view selector ── -->
+      {% if tile.type == 'chart' and tile.chart_views %}
+        {% set views = tile.chart_views.split('\n') | select | list %}
+        {% if views | length > 1 %}
+        <div class="tile-view-selector" id="views-{{ tile.id }}">
+          {% for v in views %}
+            {% set parts = v.split('|') %}
+            {% if parts | length >= 2 %}
+            <button class="view-btn {% if loop.first %}active{% endif %}"
+                    onclick="switchChartView('{{ tile.id }}','{{ parts[1] | trim | replace("'","&#39;") }}',this)">
+              {{ parts[0] | trim }}
+            </button>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endif %}
+
+      <!-- ── Preview ── -->
+      <div class="tile-preview">
+        {% if tile.type == 'camera' %}
+          <img class="camera-stream"
+               src="{{ tile.url }}"
+               alt="{{ tile.name }}"
+               title="Click to enlarge"
+               onclick="openCamera('{{ tile.url }}', '{{ tile.name }}')"
+               onerror="this.outerHTML='<div class=\'stream-error\'>⚠ Stream not reachable</div>'">
+        {% elif tile.type == 'video' %}
+          <video class="camera-stream"
+                 src="{{ tile.url }}"
+                 autoplay muted loop playsinline
+                 title="Click to enlarge"
+                 onclick="openVideo('{{ tile.url }}', '{{ tile.name }}')"
+                 onerror="this.outerHTML='<div class=\'stream-error\'>⚠ Video not reachable</div>'">
+          </video>
+        {% elif tile.type == 'chart' %}
+          <div class="embed-wrap">
+            <iframe id="chart-{{ tile.id }}"
+                    src="{{ tile.url }}"
+                    class="embed-frame"
+                    loading="lazy"
+                    sandbox="allow-scripts allow-same-origin allow-forms"
+                    title="{{ tile.name }}"></iframe>
+            <button class="embed-fullscreen-btn" title="Vollbild"
+                    onclick="openEmbed('{{ tile.url | replace("'","&#39;") }}','{{ tile.name | replace("'","&#39;") }}')">⤢</button>
+          </div>
+        {% elif tile.type == 'vnc' %}
+          <div class="embed-wrap embed-remote">
+            <span class="embed-icon">🖥️</span>
+            <span class="embed-label">VNC — {{ tile.url }}</span>
+            <button class="btn btn-primary btn-sm"
+                    onclick="openEmbed('{{ tile.url | replace("'","&#39;") }}','{{ tile.name | replace("'","&#39;") }}')">
+              Verbinden
+            </button>
+          </div>
+        {% elif tile.type == 'rdp' %}
+          <div class="embed-wrap embed-remote">
+            <span class="embed-icon">🖥️</span>
+            <span class="embed-label">RDP — {{ tile.url }}</span>
+            <button class="btn btn-primary btn-sm"
+                    onclick="openEmbed('{{ tile.url | replace("'","&#39;") }}','{{ tile.name | replace("'","&#39;") }}')">
+              Verbinden
+            </button>
+          </div>
+        {% else %}
+          {% set tile_url = tile.url if '://' in tile.url else 'https://' + tile.url %}
+          <a href="{{ tile_url }}" target="_blank" rel="noopener" class="link-thumb-wrap">
+            <img class="link-thumb"
+                 src="{% if tile.bg_image %}/dashboard/tile-bg?url={{ tile.bg_image | urlencode }}{% else %}/dashboard/og-image?url={{ tile_url | urlencode }}{% endif %}"
+                 alt="{{ tile.name }}"
+                 loading="lazy"
+                 onerror="this.closest('.link-thumb-wrap').classList.add('thumb-failed');this.remove()">
+            <div class="link-thumb-fallback">
+              <img src="https://www.google.com/s2/favicons?domain={{ tile_url }}&sz=32"
+                   style="width:24px;height:24px;flex-shrink:0"
+                   onerror="this.style.display='none'">
+              <span style="font-size:12px;color:var(--color-text-secondary,#64748b);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ tile_url | replace('https://', '') | replace('http://', '') | truncate(30, True, '…') }}
+              </span>
+            </div>
+            <span class="link-thumb-overlay">↗ Open</span>
+          </a>
+        {% endif %}
+      </div>
+
+      <!-- ── Details (collapsed by default) ── -->
+      <div class="tile-details" id="details-{{ tile.id }}" style="display:none">
+        <form hx-put="/dashboard/entries/{{ tile.id }}"
+              hx-target="#tiles-container"
+              hx-encoding="application/x-www-form-urlencoded"
+              style="display:flex;flex-direction:column;gap:10px">
+          <div class="detail-row">
+            <label class="form-label">Name</label>
+            <input class="form-control" name="name" value="{{ tile.name }}">
+          </div>
+          <div class="detail-row">
+            <label class="form-label">URL</label>
+            <input class="form-control" name="url" value="{{ tile.url }}">
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Type</label>
+            <select class="form-control" name="type">
+              <option value="link" {% if tile.type=='link' %}selected{% endif %}>Link</option>
+              <option value="camera" {% if tile.type=='camera' %}selected{% endif %}>Camera (MJPEG)</option>
+              <option value="video" {% if tile.type=='video' %}selected{% endif %}>Video (MP4)</option>
+              <option value="chart" {% if tile.type=='chart' %}selected{% endif %}>Chart (Embed/iframe)</option>
+              <option value="vnc" {% if tile.type=='vnc' %}selected{% endif %}>VNC (noVNC)</option>
+              <option value="rdp" {% if tile.type=='rdp' %}selected{% endif %}>RDP (Guacamole)</option>
+            </select>
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Group</label>
+            <input class="form-control" name="group" value="{{ tile.group }}">
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Icon URL</label>
+            <input class="form-control" name="icon" value="{{ tile.icon }}">
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Background image URL <span style="color:var(--text-muted);font-weight:400">(cached &amp; resized locally)</span></label>
+            <input class="form-control" name="bg_image" value="{{ tile.bg_image }}" placeholder="https://…/photo.jpg">
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Username</label>
+            <div style="display:flex;gap:6px">
+              <input class="form-control" name="username" value="{{ tile.username }}" style="flex:1">
+              <button type="button" class="btn btn-secondary btn-sm"
+                      title="Copy username"
+                      onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.textContent='✓';setTimeout(()=>this.innerHTML='✓',1200)" style="font-size:14px;padding:4px 8px;line-height:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="9" y="9" width="13" height="13" rx="0"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            </div>
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Password</label>
+            <div style="display:flex;gap:6px">
+              <input class="form-control" name="password" value="{{ tile.password }}" style="flex:1">
+              <button type="button" class="btn btn-secondary btn-sm"
+                      title="Copy password"
+                      onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.textContent='✓';setTimeout(()=>this.innerHTML='✓',1200)" style="font-size:14px;padding:4px 8px;line-height:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="9" y="9" width="13" height="13" rx="0"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            </div>
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Remarks</label>
+            <textarea class="form-control" name="remarks" rows="2">{{ tile.remarks }}</textarea>
+          </div>
+          {% if tile.type == 'chart' %}
+          <div class="detail-row">
+            <label class="form-label">Chart views <span style="color:var(--text-muted);font-weight:400">(optional — one per line: <code>Label|URL</code>)</span></label>
+            <textarea class="form-control" name="chart_views" rows="4">{{ tile.chart_views }}</textarea>
+          </div>
+          {% else %}
+          <input type="hidden" name="chart_views" value="{{ tile.chart_views }}">
+          {% endif %}
+          <input type="hidden" name="enabled" value="true">
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </form>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <strong>No entries yet</strong>
+  <p>Add a web link or camera stream using the form above.</p>
+</div>
+{% endfor %}

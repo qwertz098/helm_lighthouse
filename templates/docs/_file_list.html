@@ -1,0 +1,120 @@
+{% set icon_map = {'.pdf': '📄', '.png': '🖼', '.jpg': '🖼', '.jpeg': '🖼', '.gif': '🖼', '.webp': '🖼', '.svg': '🖼', '.md': '📝', '.txt': '📝', '.zip': '🗜', '.xlsx': '📊', '.docx': '📋', '.mp4': '🎬', '.mp3': '🎵'} %}
+
+<div class="card">
+  <!-- Breadcrumb + actions -->
+  <div class="card-header" style="flex-wrap:wrap;gap:12px">
+    <div class="breadcrumb" style="flex:1">
+      {% for crumb in info.breadcrumbs %}
+        {% if not loop.last %}
+          <a href="#"
+             hx-get="/files?path={{ crumb.path }}"
+             hx-target="#file-panel"
+             hx-push-url="/files?path={{ crumb.path }}">{{ crumb.name }}</a>
+          <span class="breadcrumb-sep">/</span>
+        {% else %}
+          <span>{{ crumb.name }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div class="doc-actions">
+      <form hx-post="/files/upload"
+            hx-target="#file-panel"
+            hx-encoding="multipart/form-data"
+            hx-swap="innerHTML"
+            style="display:inline">
+        <input type="hidden" name="path" value="{{ info.path }}">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+          ⬆ Upload file
+          <input type="file" name="file" style="display:none"
+                 onchange="this.closest('form').querySelector('button').click()">
+        </label>
+        <button type="submit" style="display:none"></button>
+      </form>
+      <form hx-post="/files/upload-zip"
+            hx-target="#file-panel"
+            hx-encoding="multipart/form-data"
+            hx-swap="innerHTML"
+            style="display:inline">
+        <input type="hidden" name="path" value="{{ info.path }}">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+          🗜 Extract ZIP
+          <input type="file" name="file" accept=".zip" style="display:none"
+                 onchange="this.closest('form').querySelector('button').click()">
+        </label>
+        <button type="submit" style="display:none"></button>
+      </form>
+      <span id="mkdir-toggle">
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('mkdir-form').style.display='flex';this.closest('#mkdir-toggle').style.display='none'">
+          📁 New folder
+        </button>
+      </span>
+    </div>
+  </div>
+
+  <!-- New folder inline form -->
+  <div id="mkdir-form" class="inline-form" style="display:none;padding:10px 20px;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+    <form hx-post="/files/mkdir"
+          hx-target="#file-panel"
+          hx-swap="innerHTML"
+          style="display:flex;gap:8px;align-items:center"
+          onsubmit="setTimeout(()=>{document.getElementById('mkdir-form').style.display='none';document.getElementById('mkdir-toggle').style.display=''},100)">
+      <input type="hidden" name="path" value="{{ info.path }}">
+      <input type="text" name="name" class="form-control" placeholder="Folder name" autofocus style="width:200px">
+      <button type="submit" class="btn btn-primary btn-sm">Create</button>
+      <button type="button" class="btn btn-secondary btn-sm"
+              onclick="document.getElementById('mkdir-form').style.display='none';document.getElementById('mkdir-toggle').style.display=''">
+        Cancel
+      </button>
+    </form>
+  </div>
+
+  <div class="file-list">
+    {% for d in info.dirs %}
+    <div class="file-row">
+      <span class="file-icon">📁</span>
+      <span class="file-name">
+        <a href="#"
+           hx-get="/files?path={{ (info.path + '/' + d).lstrip('/') }}"
+           hx-target="#file-panel"
+           hx-push-url="/files?path={{ (info.path + '/' + d).lstrip('/') }}">{{ d }}</a>
+      </span>
+      <button class="btn btn-icon btn-danger btn-sm"
+              hx-delete="/files/delete?path={{ (info.path + '/' + d).lstrip('/') }}&current_dir={{ info.path }}"
+              hx-target="#file-panel"
+              hx-confirm="Delete folder '{{ d }}' and all its contents?"
+              title="Delete">✕</button>
+    </div>
+    {% endfor %}
+
+    {% for file in info.files %}
+    {% set ext = '.' + file.name.rsplit('.', 1)[-1] | lower if '.' in file.name else '' %}
+    {% set icon = icon_map.get(ext, '📎') %}
+    {% set can_preview = ext in preview_extensions %}
+    {% set file_path = (info.path + '/' + file.name).lstrip('/') %}
+    <div class="file-row">
+      <span class="file-icon">{{ icon }}</span>
+      <span class="file-name">
+        {% if can_preview %}
+          <a href="/files/preview?path={{ file_path }}" target="_blank">{{ file.name }}</a>
+        {% else %}
+          {{ file.name }}
+        {% endif %}
+      </span>
+      <span class="file-size">{{ (file.size / 1024) | round(1) }} KB</span>
+      <a href="/files/raw?path={{ file_path }}" download class="btn btn-sm btn-secondary" title="Download">⬇</a>
+      <button class="btn btn-icon btn-danger btn-sm"
+              hx-delete="/files/delete?path={{ file_path }}&current_dir={{ info.path }}"
+              hx-target="#file-panel"
+              hx-confirm="Delete '{{ file.name }}'?"
+              title="Delete">✕</button>
+    </div>
+    {% endfor %}
+
+    {% if not info.dirs and not info.files %}
+    <div class="empty-state">
+      <strong>Folder is empty</strong>
+      <p>Upload files or extract a ZIP archive here.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>

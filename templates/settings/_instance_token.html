@@ -1,0 +1,14 @@
+<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px;font-size:13px">
+  <div style="font-weight:500;margin-bottom:6px">Token for <strong>{{ site_name }}</strong> — copy it now, it won't be shown again:</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <code style="background:#fff;border:1px solid #d1fae5;padding:6px 10px;border-radius:4px;font-size:12px;flex:1;word-break:break-all">{{ token }}</code>
+    <button onclick="navigator.clipboard.writeText('{{ token }}')" class="btn btn-secondary btn-sm" style="white-space:nowrap">Copy</button>
+  </div>
+  <div style="margin-top:8px;color:#64748b">Enter this token in the Helm instance's Lighthouse settings.</div>
+  <div style="margin-top:10px">
+    <button class="btn btn-secondary btn-sm"
+            hx-get="/settings/lighthouse/instances"
+            hx-target="#instances-list"
+            hx-swap="innerHTML">← Back to instance list</button>
+  </div>
+</div>

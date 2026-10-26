@@ -1,0 +1,15 @@
+{% if attachments %}
+<div class="attachment-list">
+  {% for name in attachments %}
+  <div class="attachment-item">
+    <a href="/issues/{{ issue_id }}/attachments/{{ name }}" download>📎 {{ name }}</a>
+    <button class="btn btn-icon btn-danger btn-sm"
+            hx-delete="/issues/{{ issue_id }}/attachments/{{ name }}"
+            hx-target="#attachments-container"
+            title="Delete">✕</button>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-muted">No attachments</p>
+{% endif %}

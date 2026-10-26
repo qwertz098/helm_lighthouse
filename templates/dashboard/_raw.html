@@ -1,0 +1,30 @@
+<div class="card" style="margin-top:16px">
+  <div class="card-header flex items-center justify-between">
+    <strong>Raw YAML — paste edited version back and click Apply</strong>
+    <div class="flex gap-2">
+      <button class="btn btn-secondary btn-sm" onclick="copyRaw()">Copy</button>
+      <button class="btn btn-secondary btn-sm"
+              hx-get="/dashboard"
+              hx-target="body"
+              hx-push-url="true">Cancel</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <form hx-post="/dashboard/raw"
+          hx-target="#tiles-container"
+          hx-swap="innerHTML"
+          onsubmit="document.getElementById('raw-panel').style.display='none'">
+      <textarea id="raw-textarea" class="form-control"
+                name="raw"
+                style="font-family:monospace;font-size:12px;min-height:400px;resize:vertical;width:100%;box-sizing:border-box;white-space:pre;overflow-x:auto">{{ raw }}</textarea>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button type="submit" class="btn btn-primary">Apply</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+function copyRaw() {
+  navigator.clipboard.writeText(document.getElementById('raw-textarea').value);
+}
+</script>

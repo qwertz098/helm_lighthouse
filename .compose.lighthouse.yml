@@ -1,0 +1,25 @@
+services:
+  lighthouse:
+    image: helm-lighthouse
+    restart: unless-stopped
+    ports:
+      - "8002:8080"
+    volumes:
+      - lighthouse-data:/data
+    build: .
+    environment:
+      HELM_MODE: lighthouse
+      HELM_SITE_NAME: Lighthouse
+      HELM_ADMIN_USER: admin
+      HELM_ADMIN_PASSWORD: Leuchtturm
+      SMTP_ENABLED: "true"
+      SMTP_HOST: mail.gmx.net
+      SMTP_PORT: "587"
+      SMTP_TLS: "true"
+      SMTP_USERNAME: user@gmx.de
+      SMTP_PASSWORD: user_passwort
+      SMTP_FROM: user@gmx.de
+      SMTP_TO: "user@gmx.de, empfaenger2@example.com"
+
+volumes:
+  lighthouse-data:

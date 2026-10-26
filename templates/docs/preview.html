@@ -1,0 +1,38 @@
+﻿{% extends "base.html" %}
+{% set active = "files" %}
+{% block title %}{{ filename }} — Helm{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-3" style="margin-bottom:20px">
+  <a href="/files?path={{ path.rsplit('/', 1)[0] if '/' in path else '' }}" class="btn btn-secondary btn-sm">← Back</a>
+  <h1 class="page-title" style="flex:1">{{ filename }}</h1>
+  <a href="/files/raw?path={{ path }}" download class="btn btn-secondary btn-sm">⬇ Download</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    {% if suffix == '.pdf' %}
+      <iframe src="/files/raw?path={{ path }}" class="preview-frame"></iframe>
+
+    {% elif suffix in ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'] %}
+      <img src="/files/raw?path={{ path }}" class="preview-img" alt="{{ filename }}">
+
+    {% elif suffix == '.md' %}
+      <div class="preview-md">{{ rendered_md | safe }}</div>
+
+    {% elif suffix == '.txt' %}
+      <pre style="white-space:pre-wrap;font-family:monospace;font-size:13px;color:#1e293b">{{ rendered_md }}</pre>
+
+    {% else %}
+      <div class="empty-state">
+        <strong>No preview available</strong>
+        <p>Download the file to open it.</p>
+        <div style="margin-top:16px">
+          <a href="/files/raw?path={{ path }}" download class="btn btn-primary">⬇ Download</a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+

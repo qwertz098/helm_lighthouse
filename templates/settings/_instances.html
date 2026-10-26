@@ -1,0 +1,56 @@
+{% if items %}
+<table style="width:100%;border-collapse:collapse;font-size:13px">
+  <thead>
+    <tr style="color:#64748b;border-bottom:1px solid #e2e8f0">
+      <th style="text-align:left;padding:6px 8px">Site</th>
+      <th style="text-align:left;padding:6px 8px">URL</th>
+      <th style="text-align:center;padding:6px 8px">Issues</th>
+      <th style="text-align:left;padding:6px 8px">Last seen</th>
+      <th style="text-align:left;padding:6px 8px">Access</th>
+      <th style="text-align:left;padding:6px 8px">Status</th>
+      <th style="padding:6px 8px"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:8px;font-weight:500">{{ item.site_name }}</td>
+      <td style="padding:8px;color:#64748b;font-size:12px">{{ item.url or '—' }}</td>
+      <td style="padding:8px;text-align:center">{{ item.issue_count }}</td>
+      <td style="padding:8px;color:#64748b;font-size:12px">{{ (item.last_seen or '—')[:16] }}</td>
+      <td style="padding:8px;font-size:12px">
+        {% if item.read_only %}<span style="color:#d97706">Read-only</span>{% else %}<span style="color:#2563eb">Read-write</span>{% endif %}
+      </td>
+      <td style="padding:8px">
+        {% if item.revoked %}
+        <span style="color:#dc2626;font-size:12px">Revoked</span>
+        {% else %}
+        <span style="color:#16a34a;font-size:12px">Active</span>
+        {% endif %}
+      </td>
+      <td style="padding:8px;white-space:nowrap">
+        <button class="btn btn-secondary btn-sm"
+                hx-post="/settings/lighthouse/instances/{{ item.site_name }}/regenerate"
+                hx-target="#instances-list"
+                hx-swap="innerHTML"
+                style="font-size:11px">Regenerate</button>
+        {% if item.site_id %}
+        <a class="btn btn-secondary btn-sm"
+           href="/api/sync/dashboard/{{ item.site_id }}"
+           style="font-size:11px"
+           title="Download dashboard backup">📥 Dashboard</a>
+        {% endif %}
+        {% if not item.revoked %}
+        <button class="btn btn-sm" style="font-size:11px;color:#dc2626;border-color:#fca5a5"
+                hx-post="/settings/lighthouse/instances/{{ item.site_name }}/revoke"
+                hx-target="#instances-list"
+                hx-swap="innerHTML">Revoke</button>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p style="color:#94a3b8;font-size:13px;margin:0">No instances registered yet.</p>
+{% endif %}

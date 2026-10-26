@@ -1,0 +1,28 @@
+{% if items %}
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px">
+  <thead>
+    <tr style="text-align:left;color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.05em">
+      <th style="padding:4px 8px 8px 0">Title</th>
+      <th style="padding:4px 8px 8px 0">Archived</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr style="border-top:1px solid #f1f5f9" id="arc-{{ item.filename }}">
+      <td style="padding:8px 8px 8px 0;color:#1e293b">{{ item.title }}</td>
+      <td style="padding:8px 8px 8px 0;color:#94a3b8">{{ item.modified }}</td>
+      <td style="padding:8px 0;text-align:right">
+        <button class="btn btn-secondary btn-sm"
+                hx-post="/settings/archive/{{ item.filename }}/restore"
+                hx-target="#archive-list"
+                hx-swap="innerHTML"
+                hx-confirm="Restore '{{ item.title }}'?">↩ Restore</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p style="color:#94a3b8;font-size:13px;margin:12px 0 0 0">No archived issues.</p>
+{% endif %}

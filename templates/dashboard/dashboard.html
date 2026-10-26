@@ -1,0 +1,188 @@
+﻿{% extends "base.html" %}
+{% set active = "dashboard" %}
+{% block title %}Dashboard — Helm{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between" style="margin-bottom:20px">
+  <h1 class="page-title">Dashboard</h1>
+  <div class="flex gap-2">
+    <button class="btn btn-secondary btn-sm"
+            hx-get="/dashboard/raw"
+            hx-target="#raw-panel"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('raw-panel').style.display=''">
+      📋 Edit raw YAML
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="document.getElementById('add-form').style.display=
+              document.getElementById('add-form').style.display==='none'?'':'none'">
+      + Add entry
+    </button>
+  </div>
+</div>
+
+<!-- Add entry form -->
+<div id="add-form" style="display:none;margin-bottom:16px">
+  <div class="card">
+    <div class="card-header"><strong>New entry</strong></div>
+    <div class="card-body">
+      <form hx-post="/dashboard/entries"
+            hx-target="#tiles-container"
+            hx-swap="innerHTML"
+            onsubmit="setTimeout(()=>document.getElementById('add-form').style.display='none',100)"
+            style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:end">
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input class="form-control" name="name" placeholder="My Device" required>
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label">URL</label>
+          <input class="form-control" name="url" placeholder="http://192.168.1.x" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-control" name="type" onchange="onAddTypeChange(this)">
+            <option value="link">Link</option>
+            <option value="camera">Camera (MJPEG)</option>
+            <option value="video">Video (MP4)</option>
+            <option value="chart">Chart (Embed/iframe)</option>
+            <option value="vnc">VNC (noVNC)</option>
+            <option value="rdp">RDP (Guacamole)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Group</label>
+          <input class="form-control" name="group" placeholder="Network">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-control" name="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-control" type="password" name="password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Remarks</label>
+          <input class="form-control" name="remarks">
+        </div>
+        <div class="form-group" style="grid-column:span 2" id="add-bg-row">
+          <label class="form-label">Background image URL <span style="color:#94a3b8;font-weight:400">(cached &amp; resized locally)</span></label>
+          <input class="form-control" name="bg_image" placeholder="https://…/photo.jpg">
+        </div>
+        <div class="form-group" style="grid-column:span 4;display:none" id="add-views-row">
+          <label class="form-label">Chart views <span style="color:#94a3b8;font-weight:400">(optional — one per line: <code>Label|URL</code>)</span></label>
+          <textarea class="form-control" name="chart_views" rows="3" placeholder="Last 1 h|http://192.168.1.1:8000/chart/embed/abc/?from=now-1h&#10;Last 24 h|http://192.168.1.1:8000/chart/embed/abc/?from=now-24h"></textarea>
+        </div>
+        <input type="hidden" name="icon" value="">
+        <div style="grid-column:span 4;display:flex;gap:8px">
+          <button type="submit" class="btn btn-primary btn-sm">Add</button>
+          <button type="button" class="btn btn-secondary btn-sm"
+                  onclick="document.getElementById('add-form').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Raw YAML panel -->
+<div id="raw-panel" style="display:none;margin-bottom:16px"></div>
+
+<!-- Tiles -->
+<div id="tiles-container">
+  {% include "dashboard/_tiles.html" %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function onAddTypeChange(sel) {
+  const isChart = sel.value === 'chart';
+  document.getElementById('add-views-row').style.display = isChart ? '' : 'none';
+  document.getElementById('add-bg-row').style.display = isChart ? 'none' : '';
+}
+
+function toggleDetails(id) {
+  const el = document.getElementById('details-' + id);
+  const btn = document.querySelector('#tile-' + id + ' .tile-btn[title="Expand details"]');
+  if (el.style.display === 'none') {
+    el.style.display = '';
+    btn.textContent = '−';
+    btn.title = 'Collapse details';
+  } else {
+    el.style.display = 'none';
+    btn.textContent = '＋';
+    btn.title = 'Expand details';
+  }
+}
+
+// Refresh only the saved tile's preview after an edit PUT
+let _lastEditedTileId = null;
+document.body.addEventListener('htmx:beforeRequest', e => {
+  const path = e.detail.requestConfig?.path || '';
+  const m = path.match(/\/dashboard\/entries\/([^/]+)$/);
+  if (m && e.detail.requestConfig.verb === 'put') _lastEditedTileId = m[1];
+});
+document.body.addEventListener('htmx:afterSwap', e => {
+  if (!_lastEditedTileId) return;
+  if (!e.detail.target || e.detail.target.id !== 'tiles-container') return;
+  const img = e.detail.target.querySelector(`#tile-${_lastEditedTileId} img.link-thumb`);
+  if (img) {
+    const u = new URL(img.src, location.href);
+    delete _og_cache; // server-side cache cleared separately
+    img.src = img.src.split('&t=')[0] + '&t=' + Date.now();
+  }
+  _lastEditedTileId = null;
+});
+
+function openVideo(url, name) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
+  overlay.innerHTML = `
+    <div style="color:#fff;font-weight:600;font-size:16px">${name}</div>
+    <video src="${url}" autoplay muted loop playsinline controls
+           style="max-width:90vw;max-height:80vh;border-radius:8px"
+           onerror="this.outerHTML='<div style=color:white>⚠ Video not reachable</div>'"></video>
+    <button onclick="this.closest('div').remove()"
+            style="padding:8px 20px;border:none;border-radius:6px;background:#fff;cursor:pointer">Close</button>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function switchChartView(tileId, url, btn) {
+  const frame = document.getElementById('chart-' + tileId);
+  if (frame) frame.src = url;
+  const sel = document.getElementById('views-' + tileId);
+  if (sel) sel.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
+}
+
+function openEmbed(url, name) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;flex-direction:column;align-items:stretch';
+  overlay.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:rgba(0,0,0,.6)">
+      <span style="color:#fff;font-weight:600;font-size:14px">${name}</span>
+      <button onclick="this.closest('div[style]').remove()"
+              style="padding:4px 14px;border:none;border-radius:6px;background:#fff;cursor:pointer;font-size:13px">✕ Schließen</button>
+    </div>
+    <iframe src="${url}" style="flex:1;border:none;width:100%;height:100%"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function openCamera(url, name) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
+  overlay.innerHTML = `
+    <div style="color:#fff;font-weight:600;font-size:16px">${name}</div>
+    <img src="${url}" style="max-width:90vw;max-height:80vh;border-radius:8px"
+         onerror="this.outerHTML='<div style=color:white>⚠ Stream not reachable</div>'">
+    <button onclick="this.closest('div').remove()"
+            style="padding:8px 20px;border:none;border-radius:6px;background:#fff;cursor:pointer">Close</button>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+</script>
+{% endblock %}
+

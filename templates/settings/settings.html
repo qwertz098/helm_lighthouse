@@ -1,0 +1,354 @@
+﻿{% extends "base.html" %}
+{% set active = "settings" %}
+{% block title %}Settings — Helm{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:24px">
+  <h1 class="page-title">Settings</h1>
+  <p style="color:#64748b;margin:0">Changes to paths and port require a server restart.</p>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px;max-width:760px">
+
+  <!-- ── General ── -->
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <strong>General</strong>
+      <span id="general-status"></span>
+    </div>
+    <div class="card-body">
+      <form hx-post="/settings/general"
+            hx-target="#general-status"
+            hx-swap="innerHTML"
+            style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label">Site Name <span style="color:#94a3b8;font-weight:400">(shown in emails)</span></label>
+          <input class="form-control" name="site_name" value="{{ cfg.site_name }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Host <span class="info-tip" title="Network interface to listen on. Use 0.0.0.0 to accept connections from all devices on the network, 127.0.0.1 for local only.">ⓘ</span></label>
+          <input class="form-control" name="host" value="{{ cfg.host }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Port</label>
+          <input class="form-control" type="number" name="port" value="{{ cfg.port }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Issues directory</label>
+          <input class="form-control" name="issues_dir" value="{{ cfg.issues_dir }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Docs directory</label>
+          <input class="form-control" name="docs_dir" value="{{ cfg.docs_dir }}">
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label">Database path</label>
+          <input class="form-control" name="db_path" value="{{ cfg.db_path }}">
+        </div>
+        <div style="grid-column:span 2">
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── SMTP ── -->
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Email</strong>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="smtp-status"></span>
+        <button class="btn btn-secondary btn-sm"
+                hx-post="/settings/smtp/test"
+                hx-target="#smtp-status"
+                hx-swap="innerHTML">Send test email</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <form hx-post="/settings/smtp"
+            hx-target="#smtp-status"
+            hx-swap="innerHTML"
+            style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+        <div style="grid-column:span 2">
+          <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" name="enabled" {% if cfg.smtp.enabled %}checked{% endif %}> Enable Emailing
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Host</label>
+          <input class="form-control" name="host" value="{{ cfg.smtp.host }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Port</label>
+          <input class="form-control" type="number" name="port" value="{{ cfg.smtp.port }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-control" name="username" value="{{ cfg.smtp.username }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-control" type="password" name="password" value="{{ cfg.smtp.password }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">From address</label>
+          <input class="form-control" name="from_address" value="{{ cfg.smtp.from_address }}">
+        </div>
+        <div class="form-group" style="display:flex;align-items:end;padding-bottom:4px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" name="tls" {% if cfg.smtp.tls %}checked{% endif %}> STARTTLS
+          </label>
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label">Recipients (one per line)</label>
+          <textarea class="form-control" name="to_addresses" rows="3">{{ cfg.smtp.to_addresses | join('\n') }}</textarea>
+        </div>
+        <div style="grid-column:span 2">
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Notifications ── -->
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Notifications</strong>
+      <span id="notif-status"></span>
+    </div>
+    <div class="card-body">
+      <form hx-post="/settings/notifications"
+            hx-target="#notif-status"
+            hx-swap="innerHTML"
+            style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+        <div class="form-group">
+          <label class="form-label">Base URL (used in email links)</label>
+          <input class="form-control" name="base_url" value="{{ cfg.notifications.base_url }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Send time (hour, 0–23)</label>
+          <input class="form-control" type="number" name="trigger_hour" min="0" max="23"
+                 value="{{ cfg.notifications.trigger_hour }}">
+        </div>
+
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label" style="margin-bottom:8px">Alerts</label>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" name="due_tomorrow" {% if cfg.notifications.due_tomorrow %}checked{% endif %}>
+              Alert when an issue is due tomorrow
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label" style="margin-bottom:8px">Digests</label>
+          <div style="display:flex;gap:24px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" name="digest_daily" {% if cfg.notifications.digest_daily %}checked{% endif %}> Daily
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" name="digest_weekly" {% if cfg.notifications.digest_weekly %}checked{% endif %}> Weekly (Monday)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" name="digest_monthly" {% if cfg.notifications.digest_monthly %}checked{% endif %}> Monthly (1st)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" name="digest_yearly" {% if cfg.notifications.digest_yearly %}checked{% endif %}> Yearly (Jan 1)
+            </label>
+          </div>
+        </div>
+
+        <div style="grid-column:span 2">
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Security ── -->
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Security</strong>
+      <span id="sec-status"></span>
+    </div>
+    <div class="card-body">
+      <form hx-post="/settings/security"
+            hx-target="#sec-status"
+            hx-swap="innerHTML"
+            style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label">Web UI Basic Auth <span style="color:#94a3b8;font-weight:400">(leave empty to disable — /api/sync is always exempt)</span></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-control" name="admin_user" value="{{ cfg.admin_user }}" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-control" type="password" name="admin_password" value="{{ cfg.admin_password }}" autocomplete="new-password">
+        </div>
+        <div style="grid-column:span 2">
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          <span style="color:#94a3b8;font-size:12px;margin-left:12px">Takes effect immediately — no restart needed.</span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Lighthouse ── -->
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Lighthouse</strong>
+      <span id="lh-status"></span>
+    </div>
+    <div class="card-body">
+      <form hx-post="/settings/lighthouse"
+            hx-target="#lh-status"
+            hx-swap="innerHTML"
+            style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label">Mode</label>
+          <div style="display:inline-flex;align-items:center;gap:10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:8px 14px;font-size:13px">
+            {% if cfg.mode == 'lighthouse' %}
+            <span style="background:#0ea5e9;color:#fff;border-radius:4px;padding:2px 8px;font-weight:600;font-size:12px">Lighthouse</span>
+            {% else %}
+            <span style="background:#2563eb;color:#fff;border-radius:4px;padding:2px 8px;font-weight:600;font-size:12px">Helm</span>
+            {% endif %}
+            <span style="color:#64748b">Set via <code>HELM_MODE</code> env var or <code>mode:</code> in config.yaml — restart required to switch.</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="grid-column:span 2">
+          <label class="form-label" style="margin-bottom:8px">Connected Lighthouses <span style="color:#94a3b8;font-weight:400">(Helm pushes to each on save/delete)</span></label>
+          <div id="lh-connections" style="display:flex;flex-direction:column;gap:8px">
+            {% for lh in cfg.lighthouses %}
+            <div class="lh-row" style="display:grid;grid-template-columns:1fr 2fr 2fr auto;gap:8px;align-items:center">
+              <input class="form-control" name="lh_name" placeholder="Name" value="{{ lh.name }}">
+              <input class="form-control" name="lh_url" placeholder="http://..." value="{{ lh.url }}">
+              <input class="form-control" type="password" name="lh_token" placeholder="Token" value="{{ lh.token }}" autocomplete="new-password">
+              <button type="button" onclick="this.closest('.lh-row').remove()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:18px;padding:0 4px" title="Remove">×</button>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px"
+                  onclick="addLighthouseRow()">+ Add Lighthouse</button>
+        </div>
+
+        <div style="grid-column:span 2">
+          <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" name="disable_notifications" {% if cfg.disable_notifications %}checked{% endif %}>
+            Disable local notifications (use Lighthouse email instead)
+          </label>
+        </div>
+
+        <div style="grid-column:span 2">
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+        </div>
+      </form>
+
+      {% if cfg.mode == 'lighthouse' %}
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <strong style="font-size:13px">Connected Instances</strong>
+        <button class="btn btn-secondary btn-sm"
+                onclick="document.getElementById('lh-register-form').style.display='block';this.style.display='none'">
+          + Register new instance
+        </button>
+      </div>
+      <div id="lh-register-form" style="display:none;margin-bottom:16px;padding:14px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0">
+        <form hx-post="/settings/lighthouse/register"
+              hx-target="#lh-token-result"
+              hx-swap="innerHTML"
+              style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Site Name</label>
+            <input class="form-control" name="site_name" placeholder="Busto">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">URL <span style="color:#94a3b8;font-weight:400">(optional)</span></label>
+            <input class="form-control" name="url" placeholder="http://192.168.1.20:8081">
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Generate token</button>
+          <div style="grid-column:span 3;margin-top:-4px">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+              <input type="checkbox" name="read_only"> Read-only <span style="color:#94a3b8">(Lighthouse never pushes changes back)</span>
+            </label>
+          </div>
+        </form>
+        <div id="lh-token-result" style="margin-top:10px"></div>
+      </div>
+      <div id="instances-list"
+           hx-get="/settings/lighthouse/instances"
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        <span style="color:#94a3b8;font-size:13px">Loading…</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Maintenance ── -->
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Maintenance</strong>
+      <span id="sync-status"></span>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-secondary btn-sm"
+                hx-post="/settings/sync"
+                hx-target="#sync-status"
+                hx-swap="innerHTML">↺ Sync issue index</button>
+        <span style="font-size:13px;color:#64748b">Re-scans the issues directory and updates the search index.</span>
+      </div>
+
+      <div>
+        <div style="font-weight:500;font-size:13px;margin-bottom:4px">Archived issues</div>
+        <div id="archive-list"
+             hx-get="/settings/archive"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+          <span style="color:#94a3b8;font-size:13px">Loading…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Report Templates ── -->
+  <div class="card">
+    <div class="card-header"><strong>Report Templates</strong></div>
+    <div class="card-body">
+      <div id="report-templates-container"
+           hx-get="/settings/report/templates"
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        <span style="color:#94a3b8;font-size:13px">Loading templates…</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addLighthouseRow() {
+  const row = document.createElement('div');
+  row.className = 'lh-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 2fr 2fr auto;gap:8px;align-items:center';
+  row.innerHTML = `
+    <input class="form-control" name="lh_name" placeholder="Name">
+    <input class="form-control" name="lh_url" placeholder="http://...">
+    <input class="form-control" type="password" name="lh_token" placeholder="Token" autocomplete="new-password">
+    <button type="button" onclick="this.closest('.lh-row').remove()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:18px;padding:0 4px" title="Remove">×</button>
+  `;
+  document.getElementById('lh-connections').appendChild(row);
+}
+</script>
+{% endblock %}
+

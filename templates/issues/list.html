@@ -1,0 +1,131 @@
+﻿{% extends "base.html" %}
+{% set active = "issues" %}
+{% block title %}Issues — Helm{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between" style="margin-bottom:20px">
+  <h1 class="page-title">Issues</h1>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <form method="post" action="/issues/new">
+      <button type="submit" class="btn btn-primary">+ New Issue</button>
+    </form>
+    <div style="position:relative">
+      <button type="button" class="btn btn-secondary" id="report-menu-btn" style="font-size:0.85rem">+ New Report ▾</button>
+      <div id="report-menu" style="display:none;position:absolute;right:0;top:110%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;min-width:200px;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.15);overflow:hidden">
+        <form method="post" action="/issues/new">
+          <input type="hidden" name="report" value="1">
+          <button type="submit" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer">Blank report</button>
+        </form>
+        {% if report_templates %}
+        <hr style="margin:0;border:none;border-top:1px solid #e2e8f0">
+        {% for t in report_templates %}
+        <form method="post" action="/issues/new">
+          <input type="hidden" name="template_id" value="{{ t.id }}">
+          <button type="submit" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer">{{ t.name }}</button>
+        </form>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function(){
+    var btn = document.getElementById('report-menu-btn');
+    var menu = document.getElementById('report-menu');
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+    });
+    document.addEventListener('click', function(){ menu.style.display = 'none'; });
+    menu.addEventListener('click', function(e){ e.stopPropagation(); });
+  })();
+</script>
+
+<div class="card">
+  <form id="filter-form"
+        hx-get="/issues"
+        hx-target="#issue-list-container"
+        hx-trigger="change from:select, input from:input[type=text], input from:input[type=date]"
+        hx-push-url="true">
+    <div class="filter-bar">
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select name="type" class="form-control">
+          <option value="">All</option>
+          <option value="standard" {% if filters.type == 'standard' %}selected{% endif %}>Standard</option>
+          <option value="report" {% if filters.type == 'report' %}selected{% endif %}>Report</option>
+        </select>
+      </div>
+      {% if sites %}
+      <div class="form-group">
+        <label class="form-label">Site</label>
+        <select name="site" class="form-control">
+          <option value="">All</option>
+          {% for s in sites %}
+          <option value="{{ s.id }}" {% if filters.site == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="form-group">
+        <label class="form-label">Search</label>
+        <input type="text" name="search" value="{{ filters.search }}" placeholder="Title …" class="form-control filter-search">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-control">
+          <option value="">All</option>
+          <option value="open" {% if filters.status == 'open' %}selected{% endif %}>Open</option>
+          <option value="in_progress" {% if filters.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+          <option value="closed" {% if filters.status == 'closed' %}selected{% endif %}>Closed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select name="priority" class="form-control">
+          <option value="">All</option>
+          <option value="critical" {% if filters.priority == 'critical' %}selected{% endif %}>Critical</option>
+          <option value="high" {% if filters.priority == 'high' %}selected{% endif %}>High</option>
+          <option value="medium" {% if filters.priority == 'medium' %}selected{% endif %}>Medium</option>
+          <option value="low" {% if filters.priority == 'low' %}selected{% endif %}>Low</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tag</label>
+        <input type="text" name="tag" value="{{ filters.tag }}" placeholder="Tag …" class="form-control" style="min-width:110px">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Due from</label>
+        <input type="date" name="due_from" value="{{ filters.due_from }}" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">to</label>
+        <input type="date" name="due_to" value="{{ filters.due_to }}" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sort by</label>
+        <select name="sort" class="form-control">
+          <option value="modified" {% if filters.sort == 'modified' %}selected{% endif %}>Modified</option>
+          <option value="created" {% if filters.sort == 'created' %}selected{% endif %}>Created</option>
+          <option value="due" {% if filters.sort == 'due' %}selected{% endif %}>Due date</option>
+          <option value="priority" {% if filters.sort == 'priority' %}selected{% endif %}>Priority</option>
+          <option value="title" {% if filters.sort == 'title' %}selected{% endif %}>Title</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Order</label>
+        <select name="order" class="form-control">
+          <option value="desc" {% if filters.order == 'desc' %}selected{% endif %}>↓ Descending</option>
+          <option value="asc" {% if filters.order == 'asc' %}selected{% endif %}>↑ Ascending</option>
+        </select>
+      </div>
+    </div>
+  </form>
+
+  <div id="issue-list-container">
+    {% include "issues/_issue_list.html" %}
+  </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,437 @@
+{% set r = meta.report or {} %}
+{% set execs = r.executors if r.executors else [{"name":"","company":""}] %}
+{% set positions = r.positions if r.positions else [{"description":"","hours":0}] %}
+{% set expense_items = r.expense_items if r.expense_items else [] %}
+{% set signer = r.signer if r.signer else {"name":"","company":""} %}
+{% set locked = meta.signed_at %}
+
+<div class="card" id="report-block">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+    <strong>Service Report</strong>
+    {% if locked %}<span style="color:#6366f1;font-size:0.85rem">🔒 Signed {{ meta.signed_at[:10] }}</span>{% endif %}
+  </div>
+  <div class="card-body" style="display:flex;flex-direction:column;gap:18px">
+
+    <!-- Time -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input type="date" id="r-date" class="form-control" value="{{ r.date or '' }}" {% if locked %}disabled{% endif %}>
+      </div>
+      <div class="form-group">
+        <label class="form-label">From</label>
+        <input type="time" id="r-start" class="form-control" value="{{ r.start or '' }}" {% if locked %}disabled{% endif %}>
+      </div>
+      <div class="form-group">
+        <label class="form-label">To</label>
+        <input type="time" id="r-end" class="form-control" value="{{ r.end or '' }}" {% if locked %}disabled{% endif %}>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Break (min)</label>
+        <input type="number" id="r-break" class="form-control" value="{{ r.break_minutes or 0 }}" min="0" step="5" {% if locked %}disabled{% endif %}>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Net</label>
+        <input type="text" id="r-net" class="form-control" readonly value="" placeholder="–" style="background:var(--input-bg);color:var(--text-muted)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Distance (km)</label>
+        <input type="number" id="r-km" class="form-control" value="{{ r.km or 0 }}" min="0" step="1" {% if locked %}disabled{% endif %}>
+      </div>
+      <div class="form-group">
+        <label class="form-label">€ / km</label>
+        <input type="number" id="r-cost-per-km" class="form-control" value="{{ r.cost_per_km or 0 }}" min="0" step="0.01" {% if locked %}disabled{% endif %}>
+      </div>
+    </div>
+
+    <!-- Items -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <strong style="font-size:0.9rem">Items</strong>
+        {% if not locked %}
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addPosition()">+ Row</button>
+        {% endif %}
+      </div>
+      <table style="width:100%;border-collapse:collapse" id="positions-table">
+        <thead>
+          <tr style="font-size:0.8rem;color:var(--text-muted);border-bottom:1px solid var(--border)">
+            <th style="text-align:left;padding:4px 6px;font-weight:500">Task</th>
+            <th style="width:90px;text-align:right;padding:4px 6px;font-weight:500">Hours</th>
+            {% if not locked %}<th style="width:32px"></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody id="positions-body">
+          {% for pos in positions %}
+          <tr class="pos-row">
+            <td style="padding:4px 4px;width:100%"><input type="text" class="form-control pos-desc" value="{{ pos.description or '' }}" placeholder="Task …" style="width:100%" {% if locked %}disabled{% endif %}></td>
+            <td style="padding:4px 4px;white-space:nowrap"><input type="number" class="form-control pos-hours" value="{{ pos.hours or 0 }}" min="0" step="0.25" style="text-align:right;width:90px" {% if locked %}disabled{% endif %}></td>
+            {% if not locked %}<td style="padding:4px 2px"><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();updateHoursSum()">✕</button></td>{% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:1px solid var(--border);font-size:0.85rem">
+            <td style="padding:6px 6px;color:var(--text-muted)">Total</td>
+            <td style="padding:6px 6px;text-align:right;font-weight:600" id="hours-sum">0 h</td>
+            {% if not locked %}<td></td>{% endif %}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Ausgaben -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <strong style="font-size:0.9rem">Expenses</strong>
+        {% if not locked %}
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addExpenseItem()">+ Row</button>
+        {% endif %}
+      </div>
+      <table style="width:100%;border-collapse:collapse" id="expenses-table">
+        <thead>
+          <tr style="font-size:0.8rem;color:var(--text-muted);border-bottom:1px solid var(--border)">
+            <th style="text-align:left;padding:4px 6px;font-weight:500">Expense</th>
+            <th style="width:120px;text-align:right;padding:4px 6px;font-weight:500">Cost (€)</th>
+            {% if not locked %}<th style="width:32px"></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody id="expenses-body">
+          <!-- travel row: auto-computed from km × €/km, always first -->
+          <tr id="travel-row" style="background:var(--sidebar-bg,#f8fafc)">
+            <td style="padding:4px 6px;width:100%;font-size:0.85rem;color:var(--text-muted)">
+              Travel (<span id="travel-km-label">{{ r.km or 0 }}</span> km × <span id="travel-rate-label">{{ r.cost_per_km or 0 }}</span> €/km)
+            </td>
+            <td style="padding:4px 6px;text-align:right;white-space:nowrap;font-size:0.85rem;color:var(--text-muted)" id="travel-amount">
+              {% set travel = (r.km or 0) | float * (r.cost_per_km or 0) | float %}{{ "%.2f"|format(travel) }} €
+            </td>
+            {% if not locked %}<td></td>{% endif %}
+          </tr>
+          {% for ei in expense_items %}
+          <tr class="exp-row">
+            <td style="padding:4px 4px;width:100%"><input type="text" class="form-control exp-desc" value="{{ ei.description or '' }}" placeholder="Expense …" style="width:100%" {% if locked %}disabled{% endif %}></td>
+            <td style="padding:4px 4px;white-space:nowrap"><input type="number" class="form-control exp-cost" value="{{ ei.cost or 0 }}" min="0" step="0.01" style="text-align:right;width:110px" {% if locked %}disabled{% endif %}></td>
+            {% if not locked %}<td style="padding:4px 2px"><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();updateExpensesSum()">✕</button></td>{% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:1px solid var(--border);font-size:0.85rem">
+            <td style="padding:6px 6px;color:var(--text-muted)">Total</td>
+            <td style="padding:6px 6px;text-align:right;font-weight:600;white-space:nowrap" id="expenses-sum">0.00 €</td>
+            {% if not locked %}<td></td>{% endif %}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Executed by -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <strong style="font-size:0.9rem">Executed by</strong>
+        {% if not locked %}
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addExecutor()">+ Person</button>
+        {% endif %}
+      </div>
+      <!-- column headers -->
+      <div style="display:grid;grid-template-columns:1fr 1fr{% if not locked %} 32px{% endif %};gap:8px;padding:0 2px;margin-bottom:2px">
+        <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Name</span>
+        <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Company</span>
+        {% if not locked %}<span></span>{% endif %}
+      </div>
+      <div id="executors-list" style="display:flex;flex-direction:column;gap:6px">
+        {% for ex in execs %}
+        <div class="executor-row" style="display:grid;grid-template-columns:1fr 1fr{% if not locked %} 32px{% endif %};gap:8px;align-items:center">
+          <input type="text" class="form-control exec-name" placeholder="Name" value="{{ ex.name or '' }}" {% if locked %}disabled{% endif %}>
+          <input type="text" class="form-control exec-company" placeholder="Company" value="{{ ex.company or '' }}" {% if locked %}disabled{% endif %}>
+          {% if not locked %}
+          <button type="button" class="btn btn-sm btn-danger" onclick="removeExecutor(this)" title="Remove">✕</button>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Signature -->
+    <div>
+      <strong style="font-size:0.9rem;display:block;margin-bottom:4px">Signature</strong>
+      <!-- same column headers as Executed by — third column is a spacer matching the delete-button width -->
+      <div style="display:grid;grid-template-columns:1fr 1fr{% if not locked %} 32px{% endif %};gap:8px;padding:0 2px;margin-bottom:2px">
+        <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Name</span>
+        <span style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">Company</span>
+        {% if not locked %}<span></span>{% endif %}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr{% if not locked %} 32px{% endif %};gap:8px;margin-bottom:12px;align-items:center">
+        <input type="text" id="signer-name" class="form-control" value="{{ signer.name or '' }}" placeholder="Full name" {% if locked %}disabled{% endif %}>
+        <input type="text" id="signer-company" class="form-control" value="{{ signer.company or '' }}" placeholder="Company" {% if locked %}disabled{% endif %}>
+        {% if not locked %}<span></span>{% endif %}
+      </div>
+      {% if locked and signature_b64 %}
+      <div style="border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--input-bg);display:inline-block">
+        <img src="data:image/png;base64,{{ signature_b64 }}" style="max-width:400px;max-height:150px;display:block">
+      </div>
+      {% elif not locked %}
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <!-- signature frame -->
+        <div style="position:relative;border:2px solid #6366f1;border-radius:8px;background:#fafafa;overflow:hidden">
+          <!-- placeholder label -->
+          <div id="sig-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#a5b4fc;font-size:0.85rem;letter-spacing:.04em;user-select:none">
+            Sign here
+          </div>
+          <!-- baseline rule like a paper form -->
+          <div style="position:absolute;bottom:28px;left:16px;right:16px;height:1px;background:#e0e7ff;pointer-events:none"></div>
+          <canvas id="sig-canvas"
+            style="display:block;width:100%;height:160px;touch-action:none;cursor:crosshair"></canvas>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="clearSig()">Clear</button>
+          <button type="button" class="btn btn-primary btn-sm" id="sign-btn" onclick="submitSignature()">Sign &amp; lock</button>
+          <span style="font-size:0.78rem;color:var(--text-muted)">After signing, no further changes can be made.</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Nettodauer ────────────────────────────────────────────────────────────────
+function calcNet() {
+  const start = document.getElementById('r-start').value;
+  const end   = document.getElementById('r-end').value;
+  const brk   = parseInt(document.getElementById('r-break').value) || 0;
+  if (!start || !end) { document.getElementById('r-net').value = ''; return; }
+  const [sh,sm] = start.split(':').map(Number);
+  const [eh,em] = end.split(':').map(Number);
+  const totalMin = (eh*60+em) - (sh*60+sm) - brk;
+  if (totalMin <= 0) { document.getElementById('r-net').value = '—'; return; }
+  document.getElementById('r-net').value = `${Math.floor(totalMin/60)}h ${totalMin%60}min`;
+}
+['r-start','r-end','r-break'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', calcNet);
+});
+calcNet();
+
+// ── Stunden-Summe ─────────────────────────────────────────────────────────────
+function updateHoursSum() {
+  let sum = 0;
+  document.querySelectorAll('.pos-hours').forEach(el => sum += parseFloat(el.value)||0);
+  const s = document.getElementById('hours-sum');
+  if (s) s.textContent = sum.toFixed(2).replace(/\.00$/,'') + ' h';
+}
+document.getElementById('positions-body')?.addEventListener('input', updateHoursSum);
+updateHoursSum();
+
+function addPosition() {
+  const tb = document.getElementById('positions-body');
+  const tr = document.createElement('tr');
+  tr.className = 'pos-row';
+  tr.innerHTML = `<td style="padding:4px 4px;width:100%"><input type="text" class="form-control pos-desc" placeholder="Task …" style="width:100%"></td>
+    <td style="padding:4px 4px;white-space:nowrap"><input type="number" class="form-control pos-hours" value="0" min="0" step="0.25" style="text-align:right;width:90px"></td>
+    <td style="padding:4px 2px"><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();updateHoursSum()">✕</button></td>`;
+  tb.appendChild(tr);
+  tr.querySelector('.pos-hours').addEventListener('input', updateHoursSum);
+  tr.querySelector('.pos-desc').focus();
+}
+
+function travelAmount() {
+  const km   = parseFloat(document.getElementById('r-km')?.value) || 0;
+  const rate = parseFloat(document.getElementById('r-cost-per-km')?.value) || 0;
+  return km * rate;
+}
+
+function updateTravelRow() {
+  const km   = parseFloat(document.getElementById('r-km')?.value) || 0;
+  const rate = parseFloat(document.getElementById('r-cost-per-km')?.value) || 0;
+  const amt  = km * rate;
+  const lbl  = document.getElementById('travel-km-label');
+  const rlbl = document.getElementById('travel-rate-label');
+  const cell = document.getElementById('travel-amount');
+  if (lbl)  lbl.textContent  = km;
+  if (rlbl) rlbl.textContent = rate;
+  if (cell) cell.textContent = amt.toFixed(2) + ' €';
+  updateExpensesSum();
+}
+
+function updateExpensesSum() {
+  let sum = travelAmount();
+  document.querySelectorAll('.exp-cost').forEach(el => sum += parseFloat(el.value) || 0);
+  const s = document.getElementById('expenses-sum');
+  if (s) s.textContent = sum.toFixed(2) + ' €';
+}
+document.getElementById('expenses-body')?.addEventListener('input', updateExpensesSum);
+['r-km', 'r-cost-per-km'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', updateTravelRow);
+});
+updateTravelRow();
+
+function addExpenseItem() {
+  const tb = document.getElementById('expenses-body');
+  const tr = document.createElement('tr');
+  tr.className = 'exp-row';
+  tr.innerHTML = `<td style="padding:4px 4px;width:100%"><input type="text" class="form-control exp-desc" placeholder="Expense …" style="width:100%"></td>
+    <td style="padding:4px 4px;white-space:nowrap"><input type="number" class="form-control exp-cost" value="0" min="0" step="0.01" style="text-align:right;width:110px"></td>
+    <td style="padding:4px 2px"><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();updateExpensesSum()">✕</button></td>`;
+  tb.appendChild(tr);
+  tr.querySelector('.exp-cost').addEventListener('input', updateExpensesSum);
+  tr.querySelector('.exp-desc').focus();
+}
+
+// ── Ausführer ─────────────────────────────────────────────────────────────────
+function addExecutor() {
+  const list = document.getElementById('executors-list');
+  const div = document.createElement('div');
+  div.className = 'executor-row';
+  div.style = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center';
+  div.innerHTML = `<input type="text" class="form-control exec-name" placeholder="Name">
+    <input type="text" class="form-control exec-company" placeholder="Firma">
+    <button type="button" class="btn btn-sm btn-danger" onclick="removeExecutor(this)" title="Entfernen">✕</button>`;
+  list.appendChild(div);
+}
+function removeExecutor(btn) {
+  const rows = document.querySelectorAll('.executor-row');
+  if (rows.length <= 1) return; // min. 1 Ausführer
+  btn.closest('.executor-row').remove();
+}
+
+// ── collectReportData (called from saveIssue) ─────────────────────────────────
+function collectReportData() {
+  const positions = [...document.querySelectorAll('.pos-row')].map(tr => ({
+    description: tr.querySelector('.pos-desc')?.value || '',
+    hours: parseFloat(tr.querySelector('.pos-hours')?.value) || 0,
+  }));
+  const expense_items = [...document.querySelectorAll('.exp-row')].map(tr => ({
+    description: tr.querySelector('.exp-desc')?.value || '',
+    cost: parseFloat(tr.querySelector('.exp-cost')?.value) || 0,
+  }));
+  const executors = [...document.querySelectorAll('.executor-row')].map(div => ({
+    name: div.querySelector('.exec-name')?.value || '',
+    company: div.querySelector('.exec-company')?.value || '',
+  }));
+  return {
+    date:          document.getElementById('r-date')?.value || '',
+    start:         document.getElementById('r-start')?.value || '',
+    end:           document.getElementById('r-end')?.value || '',
+    break_minutes: parseInt(document.getElementById('r-break')?.value) || 0,
+    km:            parseFloat(document.getElementById('r-km')?.value) || 0,
+    cost_per_km:   parseFloat(document.getElementById('r-cost-per-km')?.value) || 0,
+    positions,
+    expense_items,
+    executors,
+    signer: {
+      name:    document.getElementById('signer-name')?.value || '',
+      company: document.getElementById('signer-company')?.value || '',
+    },
+  };
+}
+
+// ── Signature canvas ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('sig-canvas');
+const sigCtx  = canvas ? canvas.getContext('2d') : null;
+
+// Sync canvas pixel buffer to its CSS-rendered size.
+// Must run after layout — use rAF on first call, then on resize.
+// No ctx.scale: we draw in plain CSS pixels so coords always match the cursor.
+function fitCanvas() {
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.round(rect.width);
+  const h = Math.round(rect.height);
+  if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+    canvas.width  = w;
+    canvas.height = h;
+  }
+}
+requestAnimationFrame(fitCanvas);
+window.addEventListener('resize', fitCanvas);
+
+if (canvas) {
+  const placeholder = document.getElementById('sig-placeholder');
+  let drawing = false;
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const src  = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    drawing = true;
+    if (placeholder) placeholder.style.display = 'none';
+    const p = getPos(e);
+    sigCtx.beginPath();
+    sigCtx.moveTo(p.x, p.y);
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!drawing) return;
+    const p = getPos(e);
+    sigCtx.lineWidth   = 2;
+    sigCtx.lineCap     = 'round';
+    sigCtx.lineJoin    = 'round';
+    sigCtx.strokeStyle = '#1e293b';
+    sigCtx.lineTo(p.x, p.y);
+    sigCtx.stroke();
+    sigCtx.beginPath();
+    sigCtx.moveTo(p.x, p.y);
+  });
+  canvas.addEventListener('pointerup',    () => { drawing = false; sigCtx.beginPath(); });
+  canvas.addEventListener('pointerleave', () => { drawing = false; });
+}
+
+function clearSig() {
+  if (!canvas || !sigCtx) return;
+  sigCtx.clearRect(0, 0, canvas.width, canvas.height);
+  const placeholder = document.getElementById('sig-placeholder');
+  if (placeholder) placeholder.style.display = '';
+}
+
+async function submitSignature() {
+  if (!canvas) return;
+
+  const btn = document.getElementById('sign-btn');
+  const reset = () => { if (btn) { btn.disabled = false; btn.textContent = 'Sign & lock'; } };
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing…'; }
+
+  // 1. Save current field values so they are included in the signed PDF
+  try {
+    await saveIssue();
+  } catch (err) {
+    alert('Save failed before signing: ' + err.message);
+    reset(); return;
+  }
+
+  // 2. Capture canvas as PNG blob
+  fitCanvas();
+  let blob;
+  try {
+    blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  } catch (err) {
+    alert('Could not capture signature: ' + err.message);
+    reset(); return;
+  }
+  if (!blob || blob.size < 100) {
+    alert('Please draw your signature before signing.');
+    reset(); return;
+  }
+
+  // 3. Send to server
+  try {
+    const res = await fetch(`/issues/${ISSUE_ID}/sign`, {
+      method: 'POST', body: blob, headers: { 'Content-Type': 'image/png' }
+    });
+    if (res.ok) {
+      location.reload();
+    } else {
+      const txt = await res.text();
+      alert('Sign failed: ' + txt);
+      reset();
+    }
+  } catch (err) {
+    alert('Network error while signing: ' + err.message);
+    reset();
+  }
+}
+</script>

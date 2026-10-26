@@ -1,0 +1,38 @@
+﻿{% extends "base.html" %}
+{% set active = "files" %}
+{% block title %}Files — Helm{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between" style="margin-bottom:20px">
+  <h1 class="page-title">Files</h1>
+</div>
+
+<div class="doc-browser">
+  <div class="card dir-tree">
+    <div class="card-header"><strong>Folders</strong></div>
+    <div class="card-body" style="padding:8px 0">
+      <div class="dir-tree-list" id="dir-tree">
+        <div class="dir-item {% if info.path == '' %}active{% endif %}"
+             hx-get="/files?path="
+             hx-target="#file-panel"
+             hx-push-url="/files">
+          📁 Files
+        </div>
+        {% for d in info.dirs %}
+        <div class="dir-item" style="padding-left:28px"
+             hx-get="/files?path={{ (info.path + '/' + d).lstrip('/') }}"
+             hx-target="#file-panel"
+             hx-push-url="/files?path={{ (info.path + '/' + d).lstrip('/') }}">
+          📁 {{ d }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div id="file-panel">
+    {% include "docs/_file_list.html" %}
+  </div>
+</div>
+{% endblock %}
+
