@@ -25,7 +25,7 @@ def list_dir(base: Path, rel: str = "") -> dict:
         else:
             files.append({"name": item.name, "size": item.stat().st_size})
 
-    rel_path = str(target.relative_to(base)).replace("\\", "/")
+    rel_path = str(target.relative_to(base.resolve())).replace("\\", "/")
     if rel_path == ".":
         rel_path = ""
 
