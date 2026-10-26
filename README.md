@@ -6,7 +6,7 @@ Intranet-Dashboard für Industrie- und OT-Umgebungen. Kombiniert einen Issue-Tra
 
 | Bereich | Funktionen |
 |---|---|
-| **Dashboard** | Geräte-Kacheln mit Link-Vorschau (OG-Image), MJPEG-Kamera-Streams, MP4-Video-Tiles, Gruppierung, Zugangsdaten |
+| **Dashboard** | Geräte-Kacheln mit Link-Vorschau (OG-Image), MJPEG-Kamera-Streams, MP4-Video-Tiles, eingebettete Charts (z. B. OPC2InfluxDB) mit Ansichts-Umschalter, VNC- (noVNC) und RDP-Zugang (Guacamole) im Vollbild-Overlay, Gruppierung, Zugangsdaten |
 | **Issues** | WYSIWYG-Editor (Tiptap), Statusverwaltung, Prioritäten, Tags, Fälligkeitsdatum, Anhänge, Archiv |
 | **Dokumente** | Datei-Browser, Upload, ZIP-Extraktion, Vorschau (PDF, Bilder, Markdown) |
 | **E-Mail** | Fälligkeitsalarme, tägliche/wöchentliche/monatliche/jährliche Digest-Mails |
@@ -15,7 +15,8 @@ Intranet-Dashboard für Industrie- und OT-Umgebungen. Kombiniert einen Issue-Tra
 ## Schnellstart (lokal)
 
 ```bat
-start.bat
+start_helm.bat          :: Helm (Port 8081)
+start_lighthouse.bat    :: Lighthouse
 ```
 
 Öffnet automatisch `http://localhost:8081`.
@@ -84,6 +85,23 @@ data/issues/
 ```
 
 Die ZIP-Dateien sind plain-text-lesbar und können direkt bearbeitet werden. Über **Settings → Maintenance → Sync** wird der SQLite-Index neu aufgebaut.
+
+## Dashboard-Kacheln
+
+| Typ | URL | Anzeige |
+|---|---|---|
+| `link` | Web-UI eines Geräts | Vorschaubild, öffnet in neuem Tab |
+| `camera` | MJPEG-/Snapshot-URL | Live-Bild, Klick vergrößert |
+| `video` | MP4-URL | Stummes Loop-Video, Klick vergrößert |
+| `chart` | Embed-URL (iframe) | Eingebettet; optional mehrere Ansichten als `Label\|URL` pro Zeile (Umschalter auf der Kachel, Vollbild zeigt die gewählte Ansicht) |
+| `vnc` | noVNC-Client-URL, z. B. `http://host:6080/vnc.html?autoconnect=1` | Button „Verbinden“ öffnet Vollbild-Overlay |
+| `rdp` | Guacamole-Client-URL | Button „Verbinden“ öffnet Vollbild-Overlay |
+
+Overlays schließen über „✕ Schließen“ oder `Esc` (Bild/Video auch per Klick daneben). Eingebettete Seiten vom selben Host wie Helm laufen in einer strikten Sandbox ohne Zugriff auf Helm. Das Ziel muss das Einbetten erlauben (kein `X-Frame-Options: DENY` bzw. passende `frame-ancestors`).
+
+## Update-Hinweis: Helm ↔ Lighthouse
+
+Das Sync-Protokoll wurde geändert (die offenen Endpunkte `/api/sync/register` und `/api/sync/list` sind entfernt, der Helm baut die ZIP-URL selbst). **Helm- und Lighthouse-Instanzen müssen gemeinsam aktualisiert werden**, sonst schlägt der Sync fehl.
 
 ## IXON SecureEdge Pro
 
