@@ -26,6 +26,24 @@ set "HELM_ADMIN_PASSWORD="
 :: set "SMTP_TO=empfaenger@example.com"
 :: ──────────────────────────────────────────────────────────────────────────────
 
+:: Aktuelle Version aus Git holen. Danach startet das Skript sich einmal neu, weil
+:: cmd die laufende Datei stueckweise liest und ein Update sie veraendert haben kann.
+if not defined HELM_PULLED if exist "%DIR%.git" (
+    where git >nul 2>&1
+    if errorlevel 1 (
+        echo [Lighthouse] WARNUNG: git nicht gefunden, starte ohne Update.
+    ) else (
+        echo [Lighthouse] Hole aktuelle Version ...
+        git pull --ff-only
+        if errorlevel 1 (
+            echo [Lighthouse] WARNUNG: git pull fehlgeschlagen, starte mit lokaler Version.
+        )
+        set "HELM_PULLED=1"
+        call "%~f0" %*
+        exit /b
+    )
+)
+
 :: Config anlegen falls nicht vorhanden
 if not exist "%APP_CONFIG%" (
     echo [Lighthouse] Erstelle Standard-Konfiguration: config_lighthouse.yaml ...
@@ -72,6 +90,15 @@ if not exist "%VENV%\Scripts\activate.bat" (
 )
 
 call "%VENV%\Scripts\activate.bat"
+
+:: Abhaengigkeiten aktualisieren (eine neue Version kann neue Pakete brauchen)
+echo [Lighthouse] Installiere/aktualisiere Abhaengigkeiten ...
+pip install -q -r requirements.txt
+if errorlevel 1 (
+    echo [FEHLER] pip install fehlgeschlagen.
+    pause
+    exit /b 1
+)
 
 echo [Lighthouse] Starte Server auf http://localhost:%PORT% ...
 start "" http://localhost:%PORT%
