@@ -30,6 +30,24 @@ set "HELM_ADMIN_PASSWORD="
 :: set "LIGHTHOUSES=[{"name":"LH1","url":"http://...","token":"..."}]"
 :: ──────────────────────────────────────────────────────────────────────────────
 
+:: Aktuelle Version aus Git holen. Danach startet das Skript sich einmal neu, weil
+:: cmd die laufende Datei stueckweise liest und ein Update sie veraendert haben kann.
+if not defined HELM_PULLED if exist "%DIR%.git" (
+    where git >nul 2>&1
+    if errorlevel 1 (
+        echo [Helm] WARNUNG: git nicht gefunden, starte ohne Update.
+    ) else (
+        echo [Helm] Hole aktuelle Version ...
+        git pull --ff-only
+        if errorlevel 1 (
+            echo [Helm] WARNUNG: git pull fehlgeschlagen, starte mit lokaler Version.
+        )
+        set "HELM_PULLED=1"
+        call "%~f0" %*
+        exit /b
+    )
+)
+
 :: Venv anlegen falls nicht vorhanden
 if not exist "%VENV%\Scripts\activate.bat" (
     echo [Helm] Erstelle virtuelle Umgebung ...

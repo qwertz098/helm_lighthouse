@@ -1,0 +1,4 @@
+# cmd parses LF-only batch files unreliably
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh  text eol=lf
