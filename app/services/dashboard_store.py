@@ -43,6 +43,9 @@ _HEADER = """\
 #   chart_views — Optional named views for chart tiles, one per line: "Label|URL"
 #                 Example:  "Last 1h|http://host/chart/embed/abc/?from=now-1h"
 #   enabled     — true/false — disabled tiles are hidden
+#
+# ORDER: tiles are shown in the order of this list; groups in the order of their
+# first tile. Drag & drop on the dashboard rewrites this order.
 
 """
 
@@ -140,6 +143,25 @@ def update_entry(path: Path, entry_id: str, updates: dict[str, Any]) -> list[dic
 def delete_entry(path: Path, entry_id: str) -> list[dict[str, Any]]:
     entries, _ = load(path)
     entries = [e for e in entries if e["id"] != entry_id]
+    _write_entries(path, entries)
+    return entries
+
+
+def reorder(path: Path, order: list[tuple[str, str]]) -> list[dict[str, Any]]:
+    """Apply a manual order from the UI: (id, group) pairs in display order.
+
+    The YAML list order is the display order (groups appear in order of their first
+    tile). Entries not in `order` (e.g. disabled ones) keep their place at the end.
+    """
+    entries, _ = load(path)
+    by_id = {e["id"]: e for e in entries}
+    ordered = []
+    for entry_id, group in order:
+        e = by_id.pop(entry_id, None)
+        if e is not None:
+            e["group"] = "" if group == "General" and not e.get("group") else group
+            ordered.append(e)
+    entries = ordered + [e for e in entries if e["id"] in by_id]
     _write_entries(path, entries)
     return entries
 

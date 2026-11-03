@@ -151,7 +151,11 @@ select.form-control { cursor: pointer; }
 
 /* ── Dashboard tiles ─────────────────────────────────────────────────────── */
 .tile-group { margin-bottom: 28px; }
-.tile-group-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+.tile-group-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; cursor: grab; }
+.tile-grid { min-height: 40px; }  /* keeps an emptied group droppable */
+.tile-drag { cursor: grab; color: #cbd5e1; font-size: 14px; line-height: 1; user-select: none; touch-action: none; }
+.tile-drag:hover { color: #64748b; }
+.tile-ghost { opacity: .35; }
 .tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
 .tile { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow 0.15s; }
 .tile:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }

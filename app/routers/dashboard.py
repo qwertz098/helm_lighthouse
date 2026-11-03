@@ -6,7 +6,8 @@ from urllib.parse import urljoin
 
 import httpx
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from pydantic import BaseModel
 
 from ..config import get_config
 from ..services.lighthouse_client import push_dashboard as _push_dashboard
@@ -14,6 +15,7 @@ from ..services.dashboard_store import (
     add_entry,
     delete_entry,
     load,
+    reorder,
     save_raw,
     update_entry,
 )
@@ -197,3 +199,16 @@ async def edit_entry(
     entries = update_entry(_path(), entry_id, updates)
     _schedule_push()
     return _tiles(request, entries)
+
+
+class _OrderItem(BaseModel):
+    id: str
+    group: str
+
+
+@router.post("/order", status_code=204)
+async def save_order(items: list[_OrderItem]):
+    """Persist drag & drop order; the page already shows it, so nothing is re-rendered."""
+    reorder(_path(), [(i.id, i.group) for i in items])
+    _schedule_push()
+    return Response(status_code=204)

@@ -1,6 +1,6 @@
 {% for group, tiles in groups.items() %}
-<div class="tile-group">
-  <div class="tile-group-label">{{ group }}</div>
+<div class="tile-group" data-group="{{ group }}">
+  <div class="tile-group-label" title="Gruppe verschieben">{{ group }}</div>
   <div class="tile-grid">
     {% for tile in tiles %}
     {% set tile_url = tile.url | safe_url %}
@@ -9,6 +9,7 @@
 
       <!-- ── Header row ── -->
       <div class="tile-header">
+        <span class="tile-drag" title="Verschieben">⠿</span>
         {% if tile.icon %}
           <img class="tile-icon" src="{{ tile.icon | safe_url }}" alt="" onerror="this.style.display='none'">
         {% elif tile.type == 'camera' %}
