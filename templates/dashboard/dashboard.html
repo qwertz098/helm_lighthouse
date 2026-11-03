@@ -211,23 +211,39 @@ tiles.addEventListener('click', e => {
   }
 });
 
-// Background picture upload from the tile's detail panel
-tiles.addEventListener('change', async e => {
-  if (!e.target.matches('.bg-file') || !e.target.files.length) return;
-  const id = e.target.closest('.tile').id.slice('tile-'.length);
+// Background picture for a tile: "Bild hochladen…" or Ctrl+V with an image on the clipboard
+async function uploadBg(tile, file) {
   const body = new FormData();
-  body.append('file', e.target.files[0]);
-  const r = await fetch(`/dashboard/entries/${encodeURIComponent(id)}/bg`, { method: 'POST', body });
+  body.append('file', file);
+  const r = await fetch(`/dashboard/entries/${encodeURIComponent(tile.id.slice('tile-'.length))}/bg`, { method: 'POST', body });
   if (!r.ok) {
     let msg = 'Upload fehlgeschlagen';
     try { msg = (await r.json()).detail || msg; } catch (_) {}
-    e.target.value = '';
     return alert(msg);
   }
   tiles.innerHTML = await r.text();
   htmx.process(tiles);
   initFrames(tiles);
   initSortable(tiles);
+}
+
+tiles.addEventListener('change', e => {
+  if (!e.target.matches('.bg-file') || !e.target.files.length) return;
+  const file = e.target.files[0];
+  e.target.value = '';
+  uploadBg(e.target.closest('.tile'), file);
+});
+
+// Paste goes to the tile whose details have focus, else to the only tile with open details.
+// Text pastes (e.g. a URL into a field) are left alone.
+document.addEventListener('paste', e => {
+  const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
+  if (!file) return;
+  const open = [...tiles.querySelectorAll('.tile')].filter(t => t.querySelector('.tile-details').style.display !== 'none');
+  const tile = e.target.closest?.('.tile') || (open.length === 1 ? open[0] : null);
+  if (!tile || tile.querySelector('.tile-details').style.display === 'none') return;
+  e.preventDefault();
+  uploadBg(tile, file);
 });
 
 // After an edit PUT, re-init frames and bust the edited tile's thumbnail cache
