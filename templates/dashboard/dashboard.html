@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% set active = "dashboard" %}
 {% block title %}Dashboard — Helm{% endblock %}
 
@@ -95,6 +95,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/sortable.min.js"></script>
 <script>
 function onAddTypeChange(sel) {
   const isChart = sel.value === 'chart';
@@ -165,6 +166,25 @@ function initFrames(root) {
 const tiles = document.getElementById('tiles-container');
 initFrames(tiles);
 
+// Drag & drop: tiles by their handle (also into another group), groups by their label.
+// The new order is saved to dashboard.yaml; the page is not re-rendered.
+function saveOrder() {
+  const items = [...tiles.querySelectorAll('.tile-group')].flatMap(g =>
+    [...g.querySelectorAll('.tile')].map(t => ({ id: t.id.slice('tile-'.length), group: g.dataset.group })));
+  fetch('/dashboard/order', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(items) })
+    .then(r => { if (!r.ok) throw new Error(r.status); })
+    .catch(() => alert('Reihenfolge konnte nicht gespeichert werden.'));
+}
+
+function initSortable(root) {
+  const opts = { animation: 150, ghostClass: 'tile-ghost', onEnd: saveOrder };
+  Sortable.create(root, { ...opts, handle: '.tile-group-label', draggable: '.tile-group' });
+  root.querySelectorAll('.tile-grid').forEach(grid =>
+    Sortable.create(grid, { ...opts, handle: '.tile-drag', group: 'tiles' }));
+}
+initSortable(tiles);
+
 tiles.addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
@@ -199,6 +219,7 @@ document.body.addEventListener('htmx:beforeRequest', e => {
 document.body.addEventListener('htmx:afterSwap', e => {
   if (e.detail.target?.id !== 'tiles-container') return;
   initFrames(e.detail.target);
+  initSortable(e.detail.target);
   if (!_lastEditedTileId) return;
   const img = document.getElementById('tile-' + _lastEditedTileId)?.querySelector('img.link-thumb');
   if (img) img.src = img.src.split('&t=')[0] + '&t=' + Date.now();

@@ -97,6 +97,10 @@ Die ZIP-Dateien sind plain-text-lesbar und können direkt bearbeitet werden. Üb
 | `vnc` | noVNC-Client-URL, z. B. `http://host:6080/vnc.html?autoconnect=1` | Button „Verbinden“ öffnet Vollbild-Overlay |
 | `rdp` | Guacamole-Client-URL | Button „Verbinden“ öffnet Vollbild-Overlay |
 
+Die Vorschau einer `link`-Kachel holt der Helm-Server selbst und speichert sie lokal (24 h): das `og:image`/`twitter:image` der Seite, sonst das `apple-touch-icon`, das größte Icon oder `/favicon.ico` des Geräts. Selbstsignierte Zertifikate werden dafür akzeptiert. Findet er nichts, erscheint ein Gerätesymbol; ein eigenes Bild lässt sich über „Background image URL“ setzen.
+
+Kacheln lassen sich am Griff ⠿ per Drag & Drop umsortieren, auch in eine andere Gruppe. Ganze Gruppen verschiebt man an ihrer Überschrift. Die Reihenfolge wird in `dashboard.yaml` gespeichert (Reihenfolge der `entries`).
+
 Overlays schließen über „✕ Schließen“ oder `Esc` (Bild/Video auch per Klick daneben). Eingebettete Seiten vom selben Host wie Helm laufen in einer strikten Sandbox ohne Zugriff auf Helm. Das Ziel muss das Einbetten erlauben (kein `X-Frame-Options: DENY` bzw. passende `frame-ancestors`).
 
 ## Update-Hinweis: Helm ↔ Lighthouse

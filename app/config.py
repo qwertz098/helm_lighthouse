@@ -65,6 +65,7 @@ issues_dir: /data/issues
 docs_dir: /data/docs
 db_path: /data/Helm.db
 dashboard_file: /data/dashboard.yaml
+report_templates_file: /data/report_templates.yaml
 host: 0.0.0.0
 port: 8080
 
@@ -89,6 +90,19 @@ notifications:
   digest_monthly: false
   digest_yearly: false
 """
+
+
+def _resolve_data_path(p: Path, base: Path, legacy: Path | None = None) -> Path:
+    """Anchor a relative path at `base`. Data still at its old place (relative to the
+    working directory, i.e. inside the container) is moved there once."""
+    p = Path(p)
+    new = p if p.is_absolute() else base / p
+    old = legacy if legacy is not None else (None if p.is_absolute() else Path.cwd() / p)
+    if old is not None and not new.exists() and old.exists() and old.resolve() != new.resolve():
+        import shutil
+        new.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(old), str(new))   # may cross filesystems (container -> volume)
+    return new
 
 
 def load_config(path: str | None = None) -> "Config":
@@ -143,6 +157,20 @@ def load_config(path: str | None = None) -> "Config":
         data["lighthouses"] = [{"name": "Lighthouse", "url": data["lighthouse_url"], "token": data.get("lighthouse_token", "")}]
 
     _config = Config(**data)
+
+    # Relative paths are relative to the config file, not to the working directory:
+    # in Docker the config lives on the /data volume while the cwd is /app, so
+    # "./data/x" used to end up in the container and was lost when it was recreated.
+    base = Path(cfg_path).resolve().parent
+    for field in ("issues_dir", "docs_dir", "db_path", "dashboard_file"):
+        setattr(_config, field, _resolve_data_path(getattr(_config, field), base))
+    if "report_templates_file" in data:
+        _config.report_templates_file = _resolve_data_path(_config.report_templates_file, base)
+    else:
+        # older configs lack the key; the templates belong next to the dashboard
+        _config.report_templates_file = _resolve_data_path(
+            _config.dashboard_file.parent / "report_templates.yaml", base,
+            legacy=Path.cwd() / "data" / "report_templates.yaml")
 
     # Auto-generate site_id if missing and persist it back to config.yaml
     if not _config.site_id:

@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlsplit
 
 from fastapi.templating import Jinja2Templates
 
@@ -30,5 +31,13 @@ def _safe_url(url: str) -> str:
     return "https://" + url
 
 templates.env.filters["safe_url"] = _safe_url
+
+
+def _favicon_url(url: str) -> str:
+    """The device's own /favicon.ico (no external favicon service: OT networks are often offline)."""
+    p = urlsplit(_safe_url(url))
+    return f"{p.scheme}://{p.netloc}/favicon.ico" if p.scheme in ("http", "https") and p.netloc else ""
+
+templates.env.filters["favicon_url"] = _favicon_url
 templates.env.globals["site_name"] = _site_name
 templates.env.globals["app_mode"] = _app_mode

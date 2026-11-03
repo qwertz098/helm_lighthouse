@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% set active = "issues" %}
 {% block title %}{{ meta.title or 'Issue' }} — Helm{% endblock %}
 
@@ -234,8 +234,10 @@ try {
       Placeholder.configure({ placeholder: 'Issue description … (type @ to link another issue)' }),
     ],
     content: mdToHtml(INITIAL_BODY),
-    onUpdate: () => { updateToolbar(); detectMention(); },
-    onSelectionUpdate: () => { updateToolbar(); checkImageSelected(); },
+    // Tiptap can fire these while the constructor is still running (e.g. for a body
+    // with a list), before `editor =` has happened; take the instance from the event.
+    onUpdate: ({ editor: ed }) => { editor = ed; updateToolbar(); detectMention(); },
+    onSelectionUpdate: ({ editor: ed }) => { editor = ed; updateToolbar(); checkImageSelected(); },
   });
 } catch (e) {
   console.error('TipTap editor failed to initialise:', e);
