@@ -23,9 +23,9 @@
         {% elif tile.type == 'rdp' %}
           <span class="tile-icon-emoji">🖥️</span>
         {% else %}
-          <img class="tile-icon"
-               src="https://www.google.com/s2/favicons?domain={{ tile_url | urlencode }}&sz=32"
-               alt="" onerror="this.src='/static/link-icon.svg'">
+          {# device favicon first; most OT devices have none, then the local device icon #}
+          <img class="tile-icon" src="{{ tile_url | favicon_url or '/static/device-icon.svg' }}"
+               alt="" onerror="this.onerror=null;this.src='/static/device-icon.svg'">
         {% endif %}
         <a class="tile-name" href="{{ tile_url }}" target="_blank" rel="noopener">{{ tile.name }}</a>
         <div class="tile-actions">
@@ -88,9 +88,7 @@
                  loading="lazy"
                  onerror="this.closest('.link-thumb-wrap').classList.add('thumb-failed');this.remove()">
             <div class="link-thumb-fallback">
-              <img src="https://www.google.com/s2/favicons?domain={{ tile_url }}&sz=32"
-                   style="width:24px;height:24px;flex-shrink:0"
-                   onerror="this.style.display='none'">
+              <img src="/static/device-icon.svg" alt="" style="width:32px;height:32px;flex-shrink:0">
               <span style="font-size:12px;color:var(--color-text-secondary,#64748b);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                 {{ tile_url | replace('https://', '') | replace('http://', '') | truncate(30, True, '…') }}
               </span>
