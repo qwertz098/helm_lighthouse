@@ -204,10 +204,30 @@ tiles.addEventListener('click', e => {
       tile.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
       break;
     // fullscreen shows the chart view that is currently selected on the tile
+    case 'upload-bg': tile.querySelector('.bg-file').click(); break;
     case 'embed':  openEmbed(tile.querySelector('.view-btn.active')?.dataset.viewUrl || url, name); break;
     case 'camera': openCamera(url, name); break;
     case 'video':  openVideo(url, name);  break;
   }
+});
+
+// Background picture upload from the tile's detail panel
+tiles.addEventListener('change', async e => {
+  if (!e.target.matches('.bg-file') || !e.target.files.length) return;
+  const id = e.target.closest('.tile').id.slice('tile-'.length);
+  const body = new FormData();
+  body.append('file', e.target.files[0]);
+  const r = await fetch(`/dashboard/entries/${encodeURIComponent(id)}/bg`, { method: 'POST', body });
+  if (!r.ok) {
+    let msg = 'Upload fehlgeschlagen';
+    try { msg = (await r.json()).detail || msg; } catch (_) {}
+    e.target.value = '';
+    return alert(msg);
+  }
+  tiles.innerHTML = await r.text();
+  htmx.process(tiles);
+  initFrames(tiles);
+  initSortable(tiles);
 });
 
 // After an edit PUT, re-init frames and bust the edited tile's thumbnail cache
