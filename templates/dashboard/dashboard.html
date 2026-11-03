@@ -204,11 +204,64 @@ tiles.addEventListener('click', e => {
       tile.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b === btn));
       break;
     // fullscreen shows the chart view that is currently selected on the tile
+    case 'upload-bg': tile.querySelector('.bg-file').click(); break;
+    case 'paste-bg':  pasteBg(tile, btn); break;
     case 'embed':  openEmbed(tile.querySelector('.view-btn.active')?.dataset.viewUrl || url, name); break;
     case 'camera': openCamera(url, name); break;
     case 'video':  openVideo(url, name);  break;
   }
 });
+
+// Background picture for a tile: "Bild hochladen…" or "Aus Zwischenablage"
+async function uploadBg(tile, file) {
+  const body = new FormData();
+  body.append('file', file);
+  const r = await fetch(`/dashboard/entries/${encodeURIComponent(tile.id.slice('tile-'.length))}/bg`, { method: 'POST', body });
+  if (!r.ok) {
+    let msg = 'Upload fehlgeschlagen';
+    try { msg = (await r.json()).detail || msg; } catch (_) {}
+    return alert(msg);
+  }
+  tiles.innerHTML = await r.text();
+  htmx.process(tiles);
+  initFrames(tiles);
+  initSortable(tiles);
+}
+
+tiles.addEventListener('change', e => {
+  if (!e.target.matches('.bg-file') || !e.target.files.length) return;
+  const file = e.target.files[0];
+  e.target.value = '';
+  uploadBg(e.target.closest('.tile'), file);
+});
+
+// "Aus Zwischenablage": the Clipboard API only works over HTTPS or on localhost. On a plain
+// http:// intranet address the button opens a field to paste into with Ctrl+V instead.
+async function pasteBg(tile, btn) {
+  if (window.isSecureContext && navigator.clipboard?.read) {
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find(t => t.startsWith('image/'));
+        if (type) return uploadBg(tile, new File([await item.getType(type)], 'clipboard', { type }));
+      }
+      return alert('In der Zwischenablage ist kein Bild.');
+    } catch (_) { /* permission denied: fall back to the paste field */ }
+  }
+  const zone = el('div', { className: 'paste-zone', contentEditable: 'true',
+                           textContent: 'Jetzt Strg+V drücken (Esc bricht ab)' });
+  btn.after(zone);
+  zone.focus();
+  // removing a focused node fires blur, which would call done() again in the middle of it
+  const done = () => { zone.removeEventListener('blur', done); zone.remove(); };
+  zone.addEventListener('blur', done);
+  zone.addEventListener('keydown', e => { if (e.key === 'Escape') done(); else if (!(e.ctrlKey || e.metaKey)) e.preventDefault(); });
+  zone.addEventListener('paste', e => {
+    e.preventDefault();
+    const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
+    done();
+    file ? uploadBg(tile, file) : alert('In der Zwischenablage ist kein Bild.');
+  });
+}
 
 // After an edit PUT, re-init frames and bust the edited tile's thumbnail cache
 let _lastEditedTileId = null;
