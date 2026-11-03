@@ -134,9 +134,12 @@
           <div class="detail-row">
             <label class="form-label">Background image <span style="color:var(--text-muted);font-weight:400">(URL or upload, cached &amp; resized locally)</span></label>
             <input class="form-control" name="bg_image" value="{{ tile.bg_image }}" placeholder="https://…/photo.jpg">
-            <button type="button" class="btn btn-secondary btn-sm" data-action="upload-bg" style="align-self:flex-start"
-                    title="Bild vom Rechner hochladen (wird auf 800 px verkleinert)">Bild hochladen…</button>
-            <span style="font-size:11px;color:var(--muted)">… oder ein Bild aus der Zwischenablage mit Strg+V einfügen</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" class="btn btn-secondary btn-sm" data-action="upload-bg"
+                      title="Bild vom Rechner hochladen (wird auf 800 px verkleinert)">Bild hochladen…</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-action="paste-bg"
+                      title="Kopiertes Bild (z. B. Screenshot) als Hintergrund übernehmen">Aus Zwischenablage</button>
+            </div>
             <input type="file" accept="image/*" class="bg-file" hidden>
           </div>
           <div class="detail-row">

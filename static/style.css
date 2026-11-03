@@ -248,6 +248,7 @@ textarea.form-control { resize: vertical; }
 .link-thumb-overlay { pointer-events: none; }
 .link-thumb-wrap.thumb-failed .link-thumb-overlay { display: none; }
 .link-thumb-wrap.thumb-failed:hover .link-thumb-overlay { display: flex; opacity: 1; }
+.paste-zone { padding: 10px; border: 2px dashed var(--accent); border-radius: var(--radius); background: #eff6ff; color: var(--accent); font-size: 12px; text-align: center; outline: none; caret-color: transparent; }
 .tile-details { padding: 12px; border-top: 1px solid #f1f5f9; background: #f8fafc; }
 .detail-row { display: flex; flex-direction: column; gap: 3px; }
 
