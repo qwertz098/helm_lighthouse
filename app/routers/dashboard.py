@@ -1,12 +1,12 @@
 ﻿from ..templates import templates
 import asyncio
-import re
 import time
-from urllib.parse import urljoin
+from html.parser import HTMLParser
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
 from ..config import get_config
@@ -25,12 +25,7 @@ router = APIRouter(prefix="/dashboard")
 _OG_MAX_ENTRIES = 256
 _OG_TTL_OK = 24 * 3600
 _OG_TTL_FAIL = 300           # retry unreachable devices after 5 min
-_og_cache: dict[str, tuple[float, str]] = {}
-
-_OG_RE = (
-    re.compile(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', re.I),
-    re.compile(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']', re.I),
-)
+_og_cache: dict[str, tuple[float, str]] = {}   # page URL -> (expiry, cached preview path or "")
 
 
 def _path():
@@ -49,41 +44,82 @@ def _known_urls(field: str) -> set[str]:
     return urls
 
 
-async def _fetch_og_image(url: str) -> str:
+class _PreviewImages(HTMLParser):
+    """Collect preview image candidates from a page's <meta>/<link> tags, best first."""
+
+    def __init__(self):
+        super().__init__()
+        self.meta: list[str] = []
+        self.touch: list[str] = []
+        self.icons: list[tuple[int, str]] = []
+
+    def handle_starttag(self, tag, attrs):
+        a = {k: (v or "") for k, v in attrs}
+        if tag == "meta" and (a.get("property") or a.get("name", "")).lower() in ("og:image", "twitter:image"):
+            if a.get("content"):
+                self.meta.append(a["content"])
+        elif tag == "link" and a.get("href"):
+            rel = a.get("rel", "").lower().split()
+            if "apple-touch-icon" in rel or "apple-touch-icon-precomposed" in rel:
+                self.touch.append(a["href"])
+            elif "icon" in rel:
+                size = max((int(x) for x in a.get("sizes", "").replace("x", " ").split() if x.isdigit()), default=0)
+                self.icons.append((size, a["href"]))
+
+    def candidates(self) -> list[str]:
+        return self.meta + self.touch + [h for _, h in sorted(self.icons, reverse=True)]
+
+
+async def _preview_candidates(url: str) -> list[str]:
+    """Image URLs worth trying for a link tile, best first; the device's favicon.ico last."""
+    found = []
     try:
-        async with httpx.AsyncClient(timeout=5, follow_redirects=True,
+        # verify=False: device web UIs usually have self-signed certificates
+        async with httpx.AsyncClient(timeout=5, follow_redirects=True, verify=False,
                                      headers={"User-Agent": "Helm/1.0"}) as client:
             async with client.stream("GET", url) as resp:
+                base = str(resp.url)
                 chunks, size = [], 0
                 async for chunk in resp.aiter_bytes():
                     chunks.append(chunk)
                     size += len(chunk)
                     if size >= 65536:
                         break
-        html = b"".join(chunks).decode("utf-8", errors="ignore")
-        for rx in _OG_RE:
-            if m := rx.search(html):
-                return urljoin(url, m.group(1))
+        parser = _PreviewImages()
+        parser.feed(b"".join(chunks).decode("utf-8", errors="ignore"))
+        found = [urljoin(base, c) for c in parser.candidates()]
     except Exception:
-        pass
+        base = url
+    p = urlsplit(base)
+    found.append(f"{p.scheme}://{p.netloc}/favicon.ico")
+    return [c for c in dict.fromkeys(found) if c.lower().startswith(("http://", "https://"))]
+
+
+def _first_image(candidates: list[str]) -> str:
+    from ..services.image_cache import get_or_fetch
+    for c in candidates:
+        if path := get_or_fetch(c, preview=True):
+            return str(path)
     return ""
 
 
 @router.get("/og-image")
 async def og_image(url: str):
+    """Preview for a link tile, fetched and cached by Helm (the browser may not reach the device)."""
     if not url.lower().startswith(("http://", "https://")) or url not in _known_urls("url"):
         raise HTTPException(404)
     now = time.monotonic()
     hit = _og_cache.get(url)
     if hit is None or now >= hit[0]:
-        img = await _fetch_og_image(url)
+        candidates = await _preview_candidates(url)
+        path = await asyncio.get_running_loop().run_in_executor(None, _first_image, candidates)
         if len(_og_cache) >= _OG_MAX_ENTRIES:
             _og_cache.pop(next(iter(_og_cache)))
-        _og_cache[url] = (now + (_OG_TTL_OK if img else _OG_TTL_FAIL), img)
-    img = _og_cache[url][1]
-    if img.lower().startswith(("http://", "https://")):
-        return RedirectResponse(img, status_code=302)
-    raise HTTPException(404)
+        _og_cache[url] = (now + (_OG_TTL_OK if path else _OG_TTL_FAIL), path)
+    path = _og_cache[url][1]
+    if not path:
+        raise HTTPException(404)
+    return FileResponse(path, media_type="image/jpeg")
 
 
 @router.get("/tile-bg")
