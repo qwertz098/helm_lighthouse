@@ -6,11 +6,18 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-_STATE_FILE = "data/.lighthouse_state.json"
+_LEGACY_STATE_FILE = Path("data/.lighthouse_state.json")   # relative to the cwd: outside the Docker volume
 
 
 def _state_path() -> Path:
-    return Path(_STATE_FILE)
+    """Next to the database, i.e. on the data volume."""
+    from ..config import get_config
+    p = Path(get_config().db_path).parent / ".lighthouse_state.json"
+    if not p.exists() and _LEGACY_STATE_FILE.exists() and _LEGACY_STATE_FILE.resolve() != p.resolve():
+        import shutil
+        p.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(_LEGACY_STATE_FILE), str(p))   # may cross filesystems (container -> volume)
+    return p
 
 
 def _load_state() -> dict:
