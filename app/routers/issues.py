@@ -182,13 +182,13 @@ async def issue_detail(request: Request, issue_id: str):
 
 @router.get("/{issue_id}/pdf")
 async def export_pdf(issue_id: str):
-    from ..services.pdf_export import build_issue_pdf
+    from ..services.pdf_worker import build_issue_pdf
     zip_path = _zip_path(issue_id)
     if not zip_path.exists():
         raise HTTPException(404, "Issue not found")
     meta, body = store.read_issue(zip_path)
     sig = store.get_signature(zip_path) if meta.get("signed_at") else None
-    pdf_bytes = build_issue_pdf(meta, body, sig, get_config().site_name)
+    pdf_bytes = await build_issue_pdf(meta, body, sig, get_config().site_name)
     safe = "".join(c if c.isalnum() or c in " -_" else "_" for c in (meta.get("title") or "issue")).strip() or "issue"
     return Response(
         content=pdf_bytes,
@@ -350,8 +350,8 @@ async def sign_issue(request: Request, issue_id: str):
 
     # add_attachment overwrites an existing report.pdf; user-attached PDFs stay
     try:
-        from ..services.pdf_export import build_issue_pdf
-        pdf_bytes = build_issue_pdf(meta, body, png_bytes, get_config().site_name)
+        from ..services.pdf_worker import build_issue_pdf
+        pdf_bytes = await build_issue_pdf(meta, body, png_bytes, get_config().site_name)
         store.add_attachment(zip_path, "report.pdf", pdf_bytes)
     except Exception:
         pass

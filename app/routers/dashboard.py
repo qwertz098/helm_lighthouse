@@ -4,7 +4,6 @@ import time
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
 
-import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
@@ -72,6 +71,7 @@ class _PreviewImages(HTMLParser):
 
 async def _preview_candidates(url: str) -> list[str]:
     """Image URLs worth trying for a link tile, best first; the device's favicon.ico last."""
+    import httpx   # loaded on first use: not needed by installations without link tiles
     found = []
     try:
         # verify=False: device web UIs usually have self-signed certificates

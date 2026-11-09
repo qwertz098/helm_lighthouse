@@ -17,7 +17,6 @@ from pathlib import Path
 
 from html import escape
 
-import aiosmtplib
 
 from .issue_store import read_issue
 from .markdown_render import render_markdown
@@ -38,6 +37,7 @@ async def _send(cfg, subject: str, body_html: str) -> None:
     msg["To"] = ", ".join(smtp.to_addresses)
     msg.attach(MIMEText(body_html, "html", "utf-8"))
 
+    import aiosmtplib   # loaded on first mail: most installations never send any
     try:
         await aiosmtplib.send(
             msg,
