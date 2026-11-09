@@ -4,7 +4,7 @@
 
 {% block head %}
 <script src="/static/tiptap.bundle.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js"></script>
+<script src="/static/vendor/turndown-7.2.0.js"></script>
 <style>
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -605,7 +605,7 @@ async function saveIssue() {
 // Click below last line → move cursor to end
 document.getElementById('editor').addEventListener('click', e => {
   const editorEl = document.getElementById('editor');
-  const lastNode = editorEl.querySelector('.tiptap').lastElementChild;
+  const lastNode = editorEl.querySelector('.ProseMirror')?.lastElementChild;   // .tiptap is not always set
   if (!lastNode) return;
   if (e.clientY > lastNode.getBoundingClientRect().bottom) {
     editor.commands.focus('end');

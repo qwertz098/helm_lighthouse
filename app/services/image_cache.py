@@ -2,12 +2,15 @@
 
 Used for dashboard link-tile background images: the user supplies a URL,
 we fetch it once, shrink it to a sane size, and serve the local copy.
+Pictures uploaded for a tile are stored the same way (see save_upload).
 """
 import hashlib
 import io
+import re
 import ssl
 import time
 import urllib.request
+import uuid
 from pathlib import Path
 
 from PIL import Image
@@ -35,6 +38,60 @@ def cached_path_for(url: str) -> Path:
     return _cache_dir() / f"{_key(url)}.jpg"
 
 
+UPLOAD_PREFIX = "/dashboard/bg/"     # bg_image value of an uploaded picture
+_UPLOAD_NAME = re.compile(r"^[0-9a-f]{32}\.jpg$")
+
+
+def _uploads_dir() -> Path:
+    from ..config import get_config
+    d = get_config().dashboard_file.parent / "tile_uploads"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _to_jpeg(img: Image.Image, background=(255, 255, 255)) -> Image.Image:
+    """Flatten transparency / palette onto a solid colour."""
+    if img.mode in ("RGBA", "LA", "P"):
+        bg = Image.new("RGB", img.size, background)
+        rgba = img.convert("RGBA")
+        bg.paste(rgba, mask=rgba.split()[-1])
+        return bg
+    return img.convert("RGB")
+
+
+def save_upload(data: bytes) -> str:
+    """Store an uploaded tile background (downscaled JPEG); returns its bg_image value.
+
+    Raises ValueError for files that are too big or not an image.
+    """
+    if len(data) > MAX_BYTES:
+        raise ValueError("Bild ist größer als 8 MB")
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception:
+        raise ValueError("Datei ist kein Bild")
+    img = _to_jpeg(img)
+    if img.width > MAX_WIDTH:
+        img = img.resize((MAX_WIDTH, round(img.height * MAX_WIDTH / img.width)), Image.LANCZOS)
+    name = f"{uuid.uuid4().hex}.jpg"
+    img.save(_uploads_dir() / name, "JPEG", quality=JPEG_QUALITY, optimize=True)
+    return UPLOAD_PREFIX + name
+
+
+def upload_path(name: str) -> Path | None:
+    """Path of an uploaded picture, or None for anything that is not one of ours."""
+    p = _uploads_dir() / name
+    return p if _UPLOAD_NAME.match(name) and p.is_file() else None
+
+
+def delete_upload(bg_image: str) -> None:
+    """Remove the file behind an uploaded bg_image value; other values are ignored."""
+    if (bg_image or "").startswith(UPLOAD_PREFIX):
+        if p := upload_path(bg_image[len(UPLOAD_PREFIX):]):
+            p.unlink(missing_ok=True)
+
+
 def get_or_fetch(url: str, *, preview: bool = False) -> Path | None:
     """Return the local cached (resized) image path, downloading if needed.
 
@@ -60,13 +117,7 @@ def get_or_fetch(url: str, *, preview: bool = False) -> Path | None:
         img.load()
         # Flatten transparency / palette onto white (onto the tile colour for icons)
         icon = preview and img.width < ICON_MAX
-        if img.mode in ("RGBA", "LA", "P"):
-            bg = Image.new("RGB", img.size, ICON_BG if icon else (255, 255, 255))
-            rgba = img.convert("RGBA")
-            bg.paste(rgba, mask=rgba.split()[-1])
-            img = bg
-        else:
-            img = img.convert("RGB")
+        img = _to_jpeg(img, ICON_BG if icon else (255, 255, 255))
 
         if icon:
             side = min(96, img.width * 2)

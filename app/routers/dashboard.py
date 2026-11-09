@@ -4,8 +4,7 @@ import time
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
 
-import httpx
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
@@ -72,6 +71,7 @@ class _PreviewImages(HTMLParser):
 
 async def _preview_candidates(url: str) -> list[str]:
     """Image URLs worth trying for a link tile, best first; the device's favicon.ico last."""
+    import httpx   # loaded on first use: not needed by installations without link tiles
     found = []
     try:
         # verify=False: device web UIs usually have self-signed certificates
@@ -199,8 +199,40 @@ async def create_entry(
     return _tiles(request, entries)
 
 
+def _entry(entry_id: str) -> dict | None:
+    return next((e for e in load(_path())[0] if e["id"] == entry_id), None)
+
+
+@router.get("/bg/{name}")
+async def uploaded_bg(name: str):
+    """A tile background picture uploaded through the UI."""
+    from ..services.image_cache import upload_path
+    if not (path := upload_path(name)):
+        raise HTTPException(404)
+    return FileResponse(path, media_type="image/jpeg")
+
+
+@router.post("/entries/{entry_id}/bg", response_class=HTMLResponse)
+async def upload_bg(request: Request, entry_id: str, file: UploadFile = File(...)):
+    from ..services.image_cache import MAX_BYTES, delete_upload, save_upload
+    if not (e := _entry(entry_id)):
+        raise HTTPException(404)
+    data = await file.read(MAX_BYTES + 1)
+    try:
+        bg = await asyncio.get_running_loop().run_in_executor(None, save_upload, data)
+    except ValueError as err:
+        raise HTTPException(400, str(err))
+    delete_upload(e.get("bg_image", ""))
+    entries = update_entry(_path(), entry_id, {"bg_image": bg})
+    _schedule_push()
+    return _tiles(request, entries)
+
+
 @router.delete("/entries/{entry_id}", response_class=HTMLResponse)
 async def remove_entry(request: Request, entry_id: str):
+    from ..services.image_cache import delete_upload
+    if e := _entry(entry_id):
+        delete_upload(e.get("bg_image", ""))
     entries = delete_entry(_path(), entry_id)
     _schedule_push()
     return _tiles(request, entries)
@@ -222,12 +254,10 @@ async def edit_entry(
     enabled: str = Form("true"),
     chart_views: str = Form(""),
 ):
-    from ..services.image_cache import invalidate
-    for e in load(_path())[0]:
-        if e["id"] == entry_id:
-            if e.get("bg_image") and e["bg_image"] != bg_image:
-                invalidate(e["bg_image"])
-            break
+    from ..services.image_cache import delete_upload, invalidate
+    if (e := _entry(entry_id)) and e.get("bg_image") and e["bg_image"] != bg_image:
+        invalidate(e["bg_image"])
+        delete_upload(e["bg_image"])
     updates = dict(name=name, url=url, type=type, icon=icon, bg_image=bg_image,
                    username=username, password=password,
                    remarks=remarks, group=group, chart_views=chart_views,

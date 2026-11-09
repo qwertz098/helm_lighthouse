@@ -96,6 +96,10 @@ def load(path: Path) -> tuple[list[dict[str, Any]], str]:
             e["id"] = str(uuid.uuid4())
             missing_ids = True
         e["id"] = str(e["id"])
+        # "key:" without a value is None in YAML; the forms would show and save it as "None"
+        for k in ("name", "url", "icon", "bg_image", "username", "password", "remarks", "group", "chart_views"):
+            if e.get(k) is None:
+                e.pop(k, None)
         e.setdefault("type", "link")
         e.setdefault("name", "Unnamed")
         e.setdefault("url", "")

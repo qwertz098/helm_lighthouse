@@ -83,7 +83,7 @@
         {% else %}
           <a href="{{ tile_url }}" target="_blank" rel="noopener" class="link-thumb-wrap">
             <img class="link-thumb"
-                 src="{% if tile.bg_image %}/dashboard/tile-bg?url={{ tile.bg_image | urlencode }}{% else %}/dashboard/og-image?url={{ tile_url | urlencode }}{% endif %}"
+                 src="{% if (tile.bg_image or '').startswith('/dashboard/bg/') %}{{ tile.bg_image }}{% elif tile.bg_image %}/dashboard/tile-bg?url={{ tile.bg_image | urlencode }}{% else %}/dashboard/og-image?url={{ tile_url | urlencode }}{% endif %}"
                  alt="{{ tile.name }}"
                  loading="lazy"
                  onerror="this.closest('.link-thumb-wrap').classList.add('thumb-failed');this.remove()">
@@ -132,8 +132,15 @@
             <input class="form-control" name="icon" value="{{ tile.icon }}">
           </div>
           <div class="detail-row">
-            <label class="form-label">Background image URL <span style="color:var(--text-muted);font-weight:400">(cached &amp; resized locally)</span></label>
+            <label class="form-label">Background image <span style="color:var(--text-muted);font-weight:400">(URL or upload, cached &amp; resized locally)</span></label>
             <input class="form-control" name="bg_image" value="{{ tile.bg_image }}" placeholder="https://…/photo.jpg">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" class="btn btn-secondary btn-sm" data-action="upload-bg"
+                      title="Bild vom Rechner hochladen (wird auf 800 px verkleinert)">Bild hochladen…</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-action="paste-bg"
+                      title="Kopiertes Bild (z. B. Screenshot) als Hintergrund übernehmen">Aus Zwischenablage</button>
+            </div>
+            <input type="file" accept="image/*" class="bg-file" hidden>
           </div>
           <div class="detail-row">
             <label class="form-label">Username</label>
