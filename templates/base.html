@@ -7,7 +7,9 @@
   <script src="/static/vendor/htmx-2.0.4.min.js"></script>
   {% set _logo = '/static/favicon_lighthouse.svg' if _mode == 'lighthouse' else '/static/favicon.svg' %}
   <link rel="icon" type="image/svg+xml" href="{{ _logo }}">
-  <link rel="stylesheet" href="/static/style.css?v=2">
+  <script src="/static/theme.js?v=3"></script>
+  <link rel="stylesheet" href="/static/themes.css?v=3">
+  <link rel="stylesheet" href="/static/style.css?v=3">
   {% block head %}{% endblock %}
 </head>
 <body>

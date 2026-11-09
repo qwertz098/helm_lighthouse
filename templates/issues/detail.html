@@ -8,7 +8,7 @@
 <style>
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: #94a3b8;
+  color: var(--muted);
   pointer-events: none;
   float: left;
   height: 0;
@@ -16,20 +16,20 @@
 /* image captions */
 .tiptap figure { margin: 12px 0; display: inline-block; max-width: 100%; }
 .tiptap figure img { display: block; max-width: 100%; border-radius: 6px; }
-.tiptap figure figcaption { font-size: 12px; color: #64748b; text-align: center; margin-top: 4px; }
+.tiptap figure figcaption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
 .tiptap figure figcaption:empty::before { content: 'Click to add caption…'; opacity: 0.45; }
 /* @mention autocomplete */
 #mention-dropdown {
-  position: fixed; z-index: 999; background: #fff; border: 1px solid #e2e8f0;
+  position: fixed; z-index: 999; background: var(--surface); border: 1px solid var(--border);
   border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); min-width: 220px;
   max-height: 220px; overflow-y: auto; display: none;
 }
 #mention-dropdown .mention-item {
-  padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f1f5f9;
+  padding: 8px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--panel);
 }
 #mention-dropdown .mention-item:last-child { border-bottom: none; }
 #mention-dropdown .mention-item:hover,
-#mention-dropdown .mention-item.active { background: #eff6ff; color: #2563eb; }
+#mention-dropdown .mention-item.active { background: var(--accent-soft); color: var(--accent); }
 </style>
 {% endblock %}
 
@@ -38,7 +38,7 @@
   <a href="/issues" class="btn btn-secondary btn-sm">← Back</a>
   <h1 class="page-title" style="flex:1;display:flex;align-items:center;gap:8px" id="page-title">
     {{ meta.title or 'Edit Issue' }}
-    {% if meta.type == 'report' %}<span class="badge" style="background:#6366f1;color:#fff;font-size:0.7rem;vertical-align:middle">Report</span>{% endif %}
+    {% if meta.type == 'report' %}<span class="badge" style="background:var(--dyn);color:var(--on-accent);font-size:0.7rem;vertical-align:middle">Report</span>{% endif %}
     {% if meta.signed_at %}<span title="Signed {{ meta.signed_at }}" style="font-size:0.85rem;font-weight:400">🔒</span>{% endif %}
   </h1>
   <span id="save-status"></span>
@@ -387,7 +387,7 @@ function renderMentionDropdown() {
     row.className = 'mention-item' + (i === mentionIndex ? ' active' : '');
     row.dataset.i = i;
     const idSpan = document.createElement('span');
-    idSpan.style.cssText = 'color:#94a3b8;font-size:11px';
+    idSpan.style.cssText = 'color:var(--muted);font-size:11px';
     idSpan.textContent = '#' + String(item.id).slice(0, 6);
     row.append(idSpan, ' ' + item.title);
     return row;
@@ -598,7 +598,7 @@ async function saveIssue() {
     document.title = (document.getElementById('meta-title').value || 'Issue') + ' — Helm';
     setTimeout(() => status.innerHTML = '', 2500);
   } else {
-    status.innerHTML = '<span style="color:#dc2626">Save failed</span>';
+    status.innerHTML = '<span style="color:var(--bad)">Save failed</span>';
   }
 }
 

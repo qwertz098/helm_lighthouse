@@ -67,11 +67,11 @@
           <input class="form-control" name="remarks">
         </div>
         <div class="form-group" style="grid-column:span 2" id="add-bg-row">
-          <label class="form-label">Background image URL <span style="color:#94a3b8;font-weight:400">(cached &amp; resized locally)</span></label>
+          <label class="form-label">Background image URL <span style="color:var(--muted);font-weight:400">(cached &amp; resized locally)</span></label>
           <input class="form-control" name="bg_image" placeholder="https://…/photo.jpg">
         </div>
         <div class="form-group" style="grid-column:span 4;display:none" id="add-views-row">
-          <label class="form-label">Chart views <span style="color:#94a3b8;font-weight:400">(optional — one per line: <code>Label|URL</code>)</span></label>
+          <label class="form-label">Chart views <span style="color:var(--muted);font-weight:400">(optional — one per line: <code>Label|URL</code>)</span></label>
           <textarea class="form-control" name="chart_views" rows="3" placeholder="Last 1 h|http://192.168.1.1:8000/chart/embed/abc/?from=now-1h&#10;Last 24 h|http://192.168.1.1:8000/chart/embed/abc/?from=now-24h"></textarea>
         </div>
         <input type="hidden" name="icon" value="">
@@ -121,8 +121,25 @@ function mountFrame(frame, url) {
   frame.setAttribute('sandbox', sameOrigin
     ? 'allow-scripts allow-forms'
     : 'allow-scripts allow-same-origin allow-forms allow-popups');
-  frame.src = url;
+  frame.dataset.url = url;   // as configured; themechange re-mounts from it
+  frame.src = themedChartUrl(url);
 }
+
+// OPC2Influx chart embeds (/chart/embed/<id>[/<spec>]) take Helm's colour scheme and look
+// (Settings › Appearance); of the configured spec only "shaded" is kept.
+function themedChartUrl(url) {
+  const m = url.match(/^(.*\/chart\/embed\/[^/?#]+)(?:\/([^/?#]*))?([?#].*)?$/);
+  if (!m) return url;
+  const html = document.documentElement;
+  const spec = [html.dataset.theme || 'light', html.dataset.look || 'studio'];
+  if ((m[2] || '').toLowerCase().split('+').includes('shaded')) spec.push('shaded');
+  return `${m[1]}/${spec.join('+')}${m[3] || ''}`;
+}
+
+window.addEventListener('themechange', () =>
+  document.querySelectorAll('iframe[data-url]').forEach(f => {
+    if (themedChartUrl(f.dataset.url) !== f.dataset.url) f.src = themedChartUrl(f.dataset.url);
+  }));
 
 function openOverlay(name, media) {
   const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
