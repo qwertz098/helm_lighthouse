@@ -33,4 +33,8 @@ ENV APP_HOST=0.0.0.0 \
 
 VOLUME ["/data"]
 
+# Release shown on the settings page; the workflow and the edge build scripts pass git describe
+ARG APP_RELEASE=dev
+ENV APP_RELEASE=${APP_RELEASE}
+
 CMD ["sh", "-c", "exec uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT}"]

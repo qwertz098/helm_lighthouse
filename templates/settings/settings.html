@@ -4,7 +4,10 @@
 
 {% block content %}
 <div style="margin-bottom:24px">
-  <h1 class="page-title">Settings</h1>
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+    <h1 class="page-title">Settings</h1>
+    <span style="font-size:12px;color:var(--muted)" title="Release this instance is running">Version {{ app_release }}</span>
+  </div>
   <p style="color:var(--muted);margin:0">Changes to paths and port require a server restart.</p>
 </div>
 
