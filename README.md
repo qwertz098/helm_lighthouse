@@ -103,6 +103,12 @@ Kacheln lassen sich am Griff ⠿ per Drag & Drop umsortieren, auch in eine ander
 
 Overlays schließen über „✕ Schließen“ oder `Esc` (Bild/Video auch per Klick daneben). Eingebettete Seiten vom selben Host wie Helm laufen in einer strikten Sandbox ohne Zugriff auf Helm. Das Ziel muss das Einbetten erlauben (kein `X-Frame-Options: DENY` bzw. passende `frame-ancestors`).
 
+## Aussehen
+
+Unter **Settings → Appearance** lassen sich Look (Studio, Monochrome, Contrast) und Farbschema (System, Light, Medium, Dark, Solarized light/dark) wählen, wie in OPC2Influx. Die Wahl gilt pro Browser, so kann z. B. die Leitwarte dunkel und das Büro hell arbeiten.
+
+Chart-Kacheln mit einem OPC2Influx-Embed (`…/chart/embed/<id>`) übernehmen Look und Farbschema automatisch. In der Kachel-URL wird nur noch `shaded` angegeben, falls die Fläche unter den Kurven gefüllt sein soll, z. B. `http://opc2influx:8000/chart/embed/<id>/shaded`. Andere Angaben zu Schema oder Look in der URL ersetzt Helm.
+
 ## Update-Hinweis: Helm ↔ Lighthouse
 
 Das Sync-Protokoll wurde geändert (die offenen Endpunkte `/api/sync/register` und `/api/sync/list` sind entfernt, der Helm baut die ZIP-URL selbst). **Helm- und Lighthouse-Instanzen müssen gemeinsam aktualisiert werden**, sonst schlägt der Sync fehl.

@@ -11,13 +11,13 @@
     </form>
     <div style="position:relative">
       <button type="button" class="btn btn-secondary" id="report-menu-btn" style="font-size:0.85rem">+ New Report ▾</button>
-      <div id="report-menu" style="display:none;position:absolute;right:0;top:110%;background:#fff;border:1px solid #e2e8f0;border-radius:6px;min-width:200px;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.15);overflow:hidden">
+      <div id="report-menu" style="display:none;position:absolute;right:0;top:110%;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:200px;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.15);overflow:hidden">
         <form method="post" action="/issues/new">
           <input type="hidden" name="report" value="1">
           <button type="submit" style="display:block;width:100%;text-align:left;padding:8px 14px;background:none;border:none;cursor:pointer">Blank report</button>
         </form>
         {% if report_templates %}
-        <hr style="margin:0;border:none;border-top:1px solid #e2e8f0">
+        <hr style="margin:0;border:none;border-top:1px solid var(--border)">
         {% for t in report_templates %}
         <form method="post" action="/issues/new">
           <input type="hidden" name="template_id" value="{{ t.id }}">

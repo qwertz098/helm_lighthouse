@@ -1,4 +1,7 @@
+﻿import os
 import re
+import subprocess
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi.templating import Jinja2Templates
@@ -39,5 +42,25 @@ def _favicon_url(url: str) -> str:
     return f"{p.scheme}://{p.netloc}/favicon.ico" if p.scheme in ("http", "https") and p.netloc else ""
 
 templates.env.filters["favicon_url"] = _favicon_url
+
+
+def _release_version() -> str:
+    """Release shown in the UI: APP_RELEASE (set at image build time), else
+    `git describe` for a source checkout, else "dev"."""
+    release = os.environ.get("APP_RELEASE", "").strip()
+    if release:
+        return release
+    try:
+        out = subprocess.run(
+            ["git", "describe", "--tags", "--always", "--dirty"],
+            cwd=Path(__file__).resolve().parent.parent,
+            capture_output=True, text=True, timeout=2,
+        )
+        return out.stdout.strip() or "dev"
+    except Exception:
+        return "dev"
+
+
+templates.env.globals["app_release"] = _release_version()
 templates.env.globals["site_name"] = _site_name
 templates.env.globals["app_mode"] = _app_mode

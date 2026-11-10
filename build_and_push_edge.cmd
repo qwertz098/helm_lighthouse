@@ -32,6 +32,9 @@ docker buildx inspect secure-edge-pro >nul 2>&1 || (
     docker buildx create --name secure-edge-pro --config buildkitd-secure-edge-pro.toml
 )
 docker buildx use secure-edge-pro
-docker buildx build --platform linux/arm64/v8 --tag %EDGE_IP%:5000/%IMAGE_NAME%:%IMAGE_TAG% --push .
+:: Release shown on the settings page, e.g. v1.0.0 or v1.0.0-3-gabc1234
+set APP_RELEASE=dev
+for /f "delims=" %%v in ('git describe --tags --always --dirty 2^>nul') do set APP_RELEASE=%%v
+docker buildx build --platform linux/arm64/v8 --build-arg APP_RELEASE=%APP_RELEASE% --tag %EDGE_IP%:5000/%IMAGE_NAME%:%IMAGE_TAG% --push .
 
 PAUSE

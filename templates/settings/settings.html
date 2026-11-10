@@ -4,8 +4,11 @@
 
 {% block content %}
 <div style="margin-bottom:24px">
-  <h1 class="page-title">Settings</h1>
-  <p style="color:#64748b;margin:0">Changes to paths and port require a server restart.</p>
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+    <h1 class="page-title">Settings</h1>
+    <span style="font-size:12px;color:var(--muted)" title="Release this instance is running">Version {{ app_release }}</span>
+  </div>
+  <p style="color:var(--muted);margin:0">Changes to paths and port require a server restart.</p>
 </div>
 
 <div style="display:flex;flex-direction:column;gap:20px;max-width:760px">
@@ -22,7 +25,7 @@
             hx-swap="innerHTML"
             style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="form-group" style="grid-column:span 2">
-          <label class="form-label">Site Name <span style="color:#94a3b8;font-weight:400">(shown in emails)</span></label>
+          <label class="form-label">Site Name <span style="color:var(--muted);font-weight:400">(shown in emails)</span></label>
           <input class="form-control" name="site_name" value="{{ cfg.site_name }}">
         </div>
         <div class="form-group">
@@ -51,6 +54,49 @@
       </form>
     </div>
   </div>
+
+  <!-- ── Appearance (stored in this browser, not in the config) ── -->
+  <div class="card">
+    <div class="card-header"><strong>Appearance</strong></div>
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="form-group">
+          <label class="form-label" for="lookSel">Look</label>
+          <select class="form-control" id="lookSel">
+            <option value="studio">Studio</option>
+            <option value="mono">Monochrome</option>
+            <option value="contrast">Contrast (sunlight)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="themeSel">Colour scheme</label>
+          <select class="form-control" id="themeSel">
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="medium">Medium</option>
+            <option value="dark">Dark</option>
+            <option value="solarized-light">Solarized light</option>
+            <option value="solarized-dark">Solarized dark</option>
+          </select>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px">
+        Applies immediately and is stored in this browser only, so each screen can have its own
+        (e.g. dark in the control room, light in the office). "System" follows the operating system.
+        Embedded OPC2Influx charts on the dashboard use the same look and scheme.
+      </p>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const look = document.getElementById('lookSel'), theme = document.getElementById('themeSel');
+    const p = window.helmTheme.prefs();
+    look.value = p.look;
+    theme.value = p.theme;
+    look.addEventListener('change', () => window.helmTheme.set(look.value, null));
+    theme.addEventListener('change', () => window.helmTheme.set(null, theme.value));
+  })();
+  </script>
 
   <!-- ── SMTP ── -->
   <div class="card">
@@ -181,7 +227,7 @@
             hx-swap="innerHTML"
             style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="form-group" style="grid-column:span 2">
-          <label class="form-label">Web UI Basic Auth <span style="color:#94a3b8;font-weight:400">(leave empty to disable — /api/sync is always exempt)</span></label>
+          <label class="form-label">Web UI Basic Auth <span style="color:var(--muted);font-weight:400">(leave empty to disable — /api/sync is always exempt)</span></label>
         </div>
         <div class="form-group">
           <label class="form-label">Username</label>
@@ -193,7 +239,7 @@
         </div>
         <div style="grid-column:span 2">
           <button type="submit" class="btn btn-primary btn-sm">Save</button>
-          <span style="color:#94a3b8;font-size:12px;margin-left:12px">Takes effect immediately — no restart needed.</span>
+          <span style="color:var(--muted);font-size:12px;margin-left:12px">Takes effect immediately — no restart needed.</span>
         </div>
       </form>
     </div>
@@ -213,25 +259,25 @@
 
         <div class="form-group" style="grid-column:span 2">
           <label class="form-label">Mode</label>
-          <div style="display:inline-flex;align-items:center;gap:10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:8px 14px;font-size:13px">
+          <div style="display:inline-flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:13px">
             {% if cfg.mode == 'lighthouse' %}
-            <span style="background:#0ea5e9;color:#fff;border-radius:4px;padding:2px 8px;font-weight:600;font-size:12px">Lighthouse</span>
+            <span style="background:var(--accent);color:var(--on-accent);border-radius:4px;padding:2px 8px;font-weight:600;font-size:12px">Lighthouse</span>
             {% else %}
-            <span style="background:#2563eb;color:#fff;border-radius:4px;padding:2px 8px;font-weight:600;font-size:12px">Helm</span>
+            <span style="background:var(--accent);color:var(--on-accent);border-radius:4px;padding:2px 8px;font-weight:600;font-size:12px">Helm</span>
             {% endif %}
-            <span style="color:#64748b">Set via <code>HELM_MODE</code> env var or <code>mode:</code> in config.yaml — restart required to switch.</span>
+            <span style="color:var(--muted)">Set via <code>HELM_MODE</code> env var or <code>mode:</code> in config.yaml — restart required to switch.</span>
           </div>
         </div>
 
         <div class="form-group" style="grid-column:span 2">
-          <label class="form-label" style="margin-bottom:8px">Connected Lighthouses <span style="color:#94a3b8;font-weight:400">(Helm pushes to each on save/delete)</span></label>
+          <label class="form-label" style="margin-bottom:8px">Connected Lighthouses <span style="color:var(--muted);font-weight:400">(Helm pushes to each on save/delete)</span></label>
           <div id="lh-connections" style="display:flex;flex-direction:column;gap:8px">
             {% for lh in cfg.lighthouses %}
             <div class="lh-row" style="display:grid;grid-template-columns:1fr 2fr 2fr auto;gap:8px;align-items:center">
               <input class="form-control" name="lh_name" placeholder="Name" value="{{ lh.name }}">
               <input class="form-control" name="lh_url" placeholder="http://..." value="{{ lh.url }}">
               <input class="form-control" type="password" name="lh_token" placeholder="Token" value="{{ lh.token }}" autocomplete="new-password">
-              <button type="button" onclick="this.closest('.lh-row').remove()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:18px;padding:0 4px" title="Remove">×</button>
+              <button type="button" onclick="this.closest('.lh-row').remove()" style="background:none;border:none;color:var(--bad);cursor:pointer;font-size:18px;padding:0 4px" title="Remove">×</button>
             </div>
             {% endfor %}
           </div>
@@ -252,7 +298,7 @@
       </form>
 
       {% if cfg.mode == 'lighthouse' %}
-      <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">
+      <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <strong style="font-size:13px">Connected Instances</strong>
         <button class="btn btn-secondary btn-sm"
@@ -260,7 +306,7 @@
           + Register new instance
         </button>
       </div>
-      <div id="lh-register-form" style="display:none;margin-bottom:16px;padding:14px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0">
+      <div id="lh-register-form" style="display:none;margin-bottom:16px;padding:14px;background:var(--panel);border-radius:6px;border:1px solid var(--border)">
         <form hx-post="/settings/lighthouse/register"
               hx-target="#lh-token-result"
               hx-swap="innerHTML"
@@ -270,13 +316,13 @@
             <input class="form-control" name="site_name" placeholder="Busto">
           </div>
           <div class="form-group" style="margin:0">
-            <label class="form-label">URL <span style="color:#94a3b8;font-weight:400">(optional)</span></label>
+            <label class="form-label">URL <span style="color:var(--muted);font-weight:400">(optional)</span></label>
             <input class="form-control" name="url" placeholder="http://192.168.1.20:8081">
           </div>
           <button type="submit" class="btn btn-primary btn-sm">Generate token</button>
           <div style="grid-column:span 3;margin-top:-4px">
             <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
-              <input type="checkbox" name="read_only"> Read-only <span style="color:#94a3b8">(Lighthouse never pushes changes back)</span>
+              <input type="checkbox" name="read_only"> Read-only <span style="color:var(--muted)">(Lighthouse never pushes changes back)</span>
             </label>
           </div>
         </form>
@@ -286,7 +332,7 @@
            hx-get="/settings/lighthouse/instances"
            hx-trigger="load"
            hx-swap="innerHTML">
-        <span style="color:#94a3b8;font-size:13px">Loading…</span>
+        <span style="color:var(--muted);font-size:13px">Loading…</span>
       </div>
       {% endif %}
     </div>
@@ -304,7 +350,7 @@
                 hx-post="/settings/sync"
                 hx-target="#sync-status"
                 hx-swap="innerHTML">↺ Sync issue index</button>
-        <span style="font-size:13px;color:#64748b">Re-scans the issues directory and updates the search index.</span>
+        <span style="font-size:13px;color:var(--muted)">Re-scans the issues directory and updates the search index.</span>
       </div>
 
       <div>
@@ -313,7 +359,7 @@
              hx-get="/settings/archive"
              hx-trigger="load"
              hx-swap="innerHTML">
-          <span style="color:#94a3b8;font-size:13px">Loading…</span>
+          <span style="color:var(--muted);font-size:13px">Loading…</span>
         </div>
       </div>
     </div>
@@ -327,7 +373,7 @@
            hx-get="/settings/report/templates"
            hx-trigger="load"
            hx-swap="innerHTML">
-        <span style="color:#94a3b8;font-size:13px">Loading templates…</span>
+        <span style="color:var(--muted);font-size:13px">Loading templates…</span>
       </div>
     </div>
   </div>
@@ -345,7 +391,7 @@ function addLighthouseRow() {
     <input class="form-control" name="lh_name" placeholder="Name">
     <input class="form-control" name="lh_url" placeholder="http://...">
     <input class="form-control" type="password" name="lh_token" placeholder="Token" autocomplete="new-password">
-    <button type="button" onclick="this.closest('.lh-row').remove()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:18px;padding:0 4px" title="Remove">×</button>
+    <button type="button" onclick="this.closest('.lh-row').remove()" style="background:none;border:none;color:var(--bad);cursor:pointer;font-size:18px;padding:0 4px" title="Remove">×</button>
   `;
   document.getElementById('lh-connections').appendChild(row);
 }

@@ -21,7 +21,7 @@
       <div class="preview-md">{{ rendered_md | safe }}</div>
 
     {% elif suffix == '.txt' %}
-      <pre style="white-space:pre-wrap;font-family:monospace;font-size:13px;color:#1e293b">{{ rendered_md }}</pre>
+      <pre style="white-space:pre-wrap;font-family:monospace;font-size:13px;color:var(--text)">{{ rendered_md }}</pre>
 
     {% else %}
       <div class="empty-state">

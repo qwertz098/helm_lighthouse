@@ -21,6 +21,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags and history for git describe
+
+      - name: Release name
+        id: release
+        run: echo "name=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
@@ -54,5 +60,6 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_RELEASE=${{ steps.release.outputs.name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

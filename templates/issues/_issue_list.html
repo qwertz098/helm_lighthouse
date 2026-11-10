@@ -8,13 +8,13 @@
     <div>
       <div class="issue-title">
         <a href="/issues/{{ issue.id }}">{{ issue.title or '(No title)' }}</a>
-        {% if issue.type == 'report' %}<span class="badge" style="background:#6366f1;color:#fff;font-size:0.7rem;margin-left:4px">Report</span>{% endif %}
+        {% if issue.type == 'report' %}<span class="badge" style="background:var(--dyn);color:var(--on-accent);font-size:0.7rem;margin-left:4px">Report</span>{% endif %}
         {% if issue.signed_at %}<span title="Signed {{ issue.signed_at[:10] }}" style="margin-left:4px">🔒</span>{% endif %}
       </div>
       <div class="issue-meta">
         <span>Created: {{ issue.created[:10] }}</span>
         <span>Modified: {{ issue.modified[:10] }}</span>
-        {% if issue.due %}<span style="color:{% if issue.due < today %}#dc2626{% else %}#64748b{% endif %}">Due: {{ issue.due }}</span>{% endif %}
+        {% if issue.due %}<span style="color:{% if issue.due < today %}var(--bad){% else %}var(--muted){% endif %}">Due: {{ issue.due }}</span>{% endif %}
         {% if issue.tags %}
         <span class="issue-tags">
           {% for tag in issue.tags %}<span class="tag">{{ tag }}</span>{% endfor %}

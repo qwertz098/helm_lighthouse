@@ -89,7 +89,7 @@
                  onerror="this.closest('.link-thumb-wrap').classList.add('thumb-failed');this.remove()">
             <div class="link-thumb-fallback">
               <img src="/static/device-icon.svg" alt="" style="width:32px;height:32px;flex-shrink:0">
-              <span style="font-size:12px;color:var(--color-text-secondary,#64748b);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              <span style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                 {{ tile_url | replace('https://', '') | replace('http://', '') | truncate(30, True, '…') }}
               </span>
             </div>
