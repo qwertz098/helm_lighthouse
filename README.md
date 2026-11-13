@@ -29,7 +29,7 @@ start_lighthouse.bat    :: Lighthouse
 docker compose up -d
 ```
 
-App läuft auf Port `8080`. Daten liegen in den Volumes `helm_config` und `helm_data`.
+Startet Helm auf Port `8001` und Lighthouse auf Port `8002` (im Container jeweils `8080`). Config und Daten liegen in den Volumes `helm-data` bzw. `lighthouse-data` (Pfad `/data` im Container).
 
 SMTP-Passwort über Umgebungsvariable übergeben:
 
@@ -109,9 +109,39 @@ Unter **Settings → Appearance** lassen sich Look (Studio, Monochrome, Contrast
 
 Chart-Kacheln mit einem OPC2Influx-Embed (`…/chart/embed/<id>`) übernehmen Look und Farbschema automatisch. In der Kachel-URL wird nur noch `shaded` angegeben, falls die Fläche unter den Kurven gefüllt sein soll, z. B. `http://opc2influx:8000/chart/embed/<id>/shaded`. Andere Angaben zu Schema oder Look in der URL ersetzt Helm.
 
-## Update-Hinweis: Helm ↔ Lighthouse
+## Update (Docker)
 
-Das Sync-Protokoll wurde geändert (die offenen Endpunkte `/api/sync/register` und `/api/sync/list` sind entfernt, der Helm baut die ZIP-URL selbst). **Helm- und Lighthouse-Instanzen müssen gemeinsam aktualisiert werden**, sonst schlägt der Sync fehl.
+Issues, Dokumente, Datenbank, `dashboard.yaml`, `config.yaml` und hochgeladene Kachelbilder liegen im Volume `/data` und überstehen ein Update. Das Datenformat ist seit der ersten Version kompatibel.
+
+### Update von einer Version vor November 2026
+
+Ältere Versionen haben zwei Dateien **im Container** statt im Volume abgelegt (`/app/data`). Beim Update wird der Container neu angelegt, und diese Dateien wären weg:
+
+| Datei | Folge ohne Vorbereitung |
+|---|---|
+| `report_templates.yaml` (Berichtsvorlagen) | **Vorlagen gehen verloren** |
+| `.lighthouse_state.json` (Sync-Merker) | kein Datenverlust; der erste Sync zieht einmal alle Issues neu, ohne Duplikate |
+
+Neue Versionen speichern beides im Volume. Die Berichtsvorlagen deshalb **vor** dem Update ins Volume kopieren, solange der alte Container noch läuft:
+
+```bash
+docker compose exec helm sh -c 'test -f /app/data/report_templates.yaml && cp /app/data/report_templates.yaml /data/'
+docker compose exec lighthouse sh -c 'test -f /app/data/report_templates.yaml && cp /app/data/report_templates.yaml /data/'
+```
+
+Ohne Shell-Zugang zum Container (z. B. auf dem IXON SecureEdge Pro) die Vorlagen nach dem Update unter **Settings → Report Templates** neu anlegen.
+
+Empfohlen vor jedem Update: das Volume sichern. Den Namen zeigt `docker volume ls`, meist mit Projektpräfix:
+
+```bash
+docker run --rm -v helm_lighthouse_helm-data:/data -v "$PWD":/backup alpine tar czf /backup/helm-data.tgz -C /data .
+```
+
+Danach wie gewohnt aktualisieren: Image neu holen bzw. bauen, `docker compose up -d`.
+
+### Helm und Lighthouse gemeinsam aktualisieren
+
+Das Sync-Protokoll wurde geändert (die offenen Endpunkte `/api/sync/register` und `/api/sync/list` sind entfernt, der Helm baut die ZIP-URL selbst). **Helm- und Lighthouse-Instanzen müssen gemeinsam aktualisiert werden**, sonst schlägt der Sync fehl. Daten gehen dabei nicht verloren.
 
 ## IXON SecureEdge Pro
 
