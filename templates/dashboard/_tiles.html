@@ -23,9 +23,10 @@
         {% elif tile.type == 'rdp' %}
           <span class="tile-icon-emoji">🖥️</span>
         {% else %}
-          {# device favicon first; most OT devices have none, then the local device icon #}
-          <img class="tile-icon" src="{{ tile_url | favicon_url or '/static/device-icon.svg' }}"
-               alt="" onerror="this.onerror=null;this.src='/static/device-icon.svg'">
+          {# the device's own icon (fetched by Helm); most OT devices have none: then the area's icon #}
+          {% set area_icon = '/static/area-' ~ tile_area(tile) ~ '.svg' %}
+          <img class="tile-icon" src="/dashboard/favicon?url={{ tile_url | urlencode }}"
+               alt="" onerror="this.onerror=null;this.src='{{ area_icon }}'">
         {% endif %}
         <a class="tile-name" href="{{ tile_url }}" target="_blank" rel="noopener">{{ tile.name }}</a>
         <div class="tile-actions">
@@ -88,7 +89,7 @@
                  loading="lazy"
                  onerror="this.closest('.link-thumb-wrap').classList.add('thumb-failed');this.remove()">
             <div class="link-thumb-fallback">
-              <img src="/static/device-icon.svg" alt="" style="width:32px;height:32px;flex-shrink:0">
+              <img src="/static/area-{{ tile_area(tile) }}.svg" alt="" style="width:48px;height:48px;flex-shrink:0">
               <span style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
                 {{ tile_url | replace('https://', '') | replace('http://', '') | truncate(30, True, '…') }}
               </span>
@@ -126,6 +127,15 @@
           <div class="detail-row">
             <label class="form-label">Group</label>
             <input class="form-control" name="group" value="{{ tile.group }}">
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Area <span style="color:var(--text-muted);font-weight:400">(icon; names under Settings › Device areas)</span></label>
+            <select class="form-control" name="area">
+              <option value="" {% if not tile.area %}selected{% endif %}>Automatic (from group) — {{ area_labels[tile_area(tile)] }}</option>
+              {% for key, label in area_labels.items() %}
+              <option value="{{ key }}" {% if tile.area == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="detail-row">
             <label class="form-label">Icon URL</label>

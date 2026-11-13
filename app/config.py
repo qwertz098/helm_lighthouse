@@ -53,6 +53,8 @@ class Config(BaseModel):
     port: int = 8080
     smtp: SmtpConfig = SmtpConfig()
     notifications: NotificationsConfig = NotificationsConfig()
+    # group names per dashboard area (Settings › Device areas); missing areas use the defaults
+    tile_areas: dict[str, list[str]] = {}
 
 
 _config: Config | None = None

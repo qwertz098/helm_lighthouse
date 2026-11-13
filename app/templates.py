@@ -2,7 +2,6 @@
 import re
 import subprocess
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from fastapi.templating import Jinja2Templates
 
@@ -36,13 +35,6 @@ def _safe_url(url: str) -> str:
 templates.env.filters["safe_url"] = _safe_url
 
 
-def _favicon_url(url: str) -> str:
-    """The device's own /favicon.ico (no external favicon service: OT networks are often offline)."""
-    p = urlsplit(_safe_url(url))
-    return f"{p.scheme}://{p.netloc}/favicon.ico" if p.scheme in ("http", "https") and p.netloc else ""
-
-templates.env.filters["favicon_url"] = _favicon_url
-
 
 def _release_version() -> str:
     """Release shown in the UI: APP_RELEASE (set at image build time), else
@@ -64,3 +56,13 @@ def _release_version() -> str:
 templates.env.globals["app_release"] = _release_version()
 templates.env.globals["site_name"] = _site_name
 templates.env.globals["app_mode"] = _app_mode
+
+
+def _tile_area(tile: dict) -> str:
+    from .services.areas import area_of
+    return area_of(tile, get_config().tile_areas)
+
+templates.env.globals["tile_area"] = _tile_area
+
+from .services.areas import LABELS as _AREA_LABELS
+templates.env.globals["area_labels"] = _AREA_LABELS

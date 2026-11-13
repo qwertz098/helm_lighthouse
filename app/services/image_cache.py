@@ -18,9 +18,8 @@ from PIL import Image
 MAX_WIDTH = 800          # downscale anything wider than this
 MAX_BYTES = 8 * 1024 * 1024   # refuse to download more than 8 MB
 JPEG_QUALITY = 80
-ICON_MAX = 200           # images narrower than this are icons, not pictures
-ICON_CANVAS = (480, 270)
-ICON_BG = (241, 245, 249)   # #f1f5f9, the tile preview background
+PREVIEW_MIN = 96         # smaller images (favicons) make no preview; the tile shows its area icon
+PREVIEW_CANVAS = (480, 270)   # same shape as the tile's preview area
 
 
 def _cache_dir() -> Path:
@@ -36,6 +35,11 @@ def _key(url: str) -> str:
 
 def cached_path_for(url: str) -> Path:
     return _cache_dir() / f"{_key(url)}.jpg"
+
+
+def _preview_path(url: str) -> Path:
+    # own key space: previews made by older versions (cropped logos) are not reused
+    return _cache_dir() / f"{_key('preview2:' + url)}.png"
 
 
 UPLOAD_PREFIX = "/dashboard/bg/"     # bg_image value of an uploaded picture
@@ -92,44 +96,65 @@ def delete_upload(bg_image: str) -> None:
             p.unlink(missing_ok=True)
 
 
-def get_or_fetch(url: str, *, preview: bool = False) -> Path | None:
-    """Return the local cached (resized) image path, downloading if needed.
-
-    preview=True is for automatic link-tile previews: devices often use self-signed
-    certificates, icons are centred on a canvas instead of being blown up, and the
-    copy is refreshed after a day.
-    """
+def get_or_fetch(url: str) -> Path | None:
+    """Return the local cached (resized) copy of a tile background image, downloading if needed."""
     # urllib would also open file:// and ftp:// URLs
     if not url or not url.lower().startswith(("http://", "https://")):
         return None
     dest = cached_path_for(url)
-    if dest.exists() and not (preview and time.time() - dest.stat().st_mtime > 24 * 3600):
+    if dest.exists():
         return dest
     try:
-        ctx = ssl._create_unverified_context() if preview else None
         req = urllib.request.Request(url, headers={"User-Agent": "Helm/1.0"})
-        with urllib.request.urlopen(req, timeout=8, context=ctx) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             data = resp.read(MAX_BYTES + 1)
         if len(data) > MAX_BYTES:
             return None
-
         img = Image.open(io.BytesIO(data))
         img.load()
-        # Flatten transparency / palette onto white (onto the tile colour for icons)
-        icon = preview and img.width < ICON_MAX
-        img = _to_jpeg(img, ICON_BG if icon else (255, 255, 255))
-
-        if icon:
-            side = min(96, img.width * 2)
-            img = img.resize((side, round(img.height * side / img.width)), Image.LANCZOS)
-            canvas = Image.new("RGB", ICON_CANVAS, ICON_BG)
-            canvas.paste(img, ((ICON_CANVAS[0] - img.width) // 2, (ICON_CANVAS[1] - img.height) // 2))
-            img = canvas
-        elif img.width > MAX_WIDTH:
-            h = round(img.height * MAX_WIDTH / img.width)
-            img = img.resize((MAX_WIDTH, h), Image.LANCZOS)
-
+        img = _to_jpeg(img)
+        if img.width > MAX_WIDTH:
+            img = img.resize((MAX_WIDTH, round(img.height * MAX_WIDTH / img.width)), Image.LANCZOS)
         img.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
+        return dest
+    except Exception:
+        return None
+
+
+def get_preview(url: str) -> Path | None:
+    """Automatic link-tile preview from a device image, cached for a day.
+
+    Devices often use self-signed certificates. A screenshot-like picture (landscape,
+    at least 400 px wide) fills the tile; anything else is a logo or icon and is
+    fitted whole onto a transparent canvas, so nothing is cropped and the tile's own
+    colour shows around it. Images under PREVIEW_MIN px make no preview.
+    """
+    if not url or not url.lower().startswith(("http://", "https://")):
+        return None
+    dest = _preview_path(url)
+    if dest.exists() and time.time() - dest.stat().st_mtime < 24 * 3600:
+        return dest
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Helm/1.0"})
+        with urllib.request.urlopen(req, timeout=8, context=ssl._create_unverified_context()) as resp:
+            data = resp.read(MAX_BYTES + 1)
+        if len(data) > MAX_BYTES:
+            return None
+        img = Image.open(io.BytesIO(data))
+        img.load()
+        if img.width < PREVIEW_MIN or img.height < PREVIEW_MIN // 2:
+            return None
+        img = img.convert("RGBA")
+        cw, ch = PREVIEW_CANVAS
+        if img.width >= 400 and 1.5 <= img.width / img.height <= 2.2:
+            img = img.resize((cw, round(img.height * cw / img.width)), Image.LANCZOS)
+        else:
+            # logo: fit inside the canvas with a margin, never enlarge more than 2x
+            scale = min((cw - 80) / img.width, (ch - 70) / img.height, 2.0)
+            logo = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.LANCZOS)
+            img = Image.new("RGBA", PREVIEW_CANVAS, (0, 0, 0, 0))
+            img.paste(logo, ((cw - logo.width) // 2, (ch - logo.height) // 2), logo)
+        img.save(dest, "PNG", optimize=True)
         return dest
     except Exception:
         return None

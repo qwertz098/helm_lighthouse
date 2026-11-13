@@ -338,6 +338,48 @@
     </div>
   </div>
 
+  <!-- ── Device areas (dashboard tile icons) ── -->
+  {% if app_mode() != 'lighthouse' %}
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Device areas</strong>
+      <span id="areas-status"></span>
+    </div>
+    <div class="card-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        A link tile shows the icon of its area until the device delivers a picture of its own.
+        The area comes from the tile's group: a group containing one of these names (whole word,
+        any case) belongs to that area; the first match from the top wins. A tile can also be set
+        to an area directly in its details. Groups without a match count as Network.
+      </p>
+      <form hx-post="/settings/areas" hx-target="#areas-status" hx-swap="innerHTML">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="text-align:left;color:var(--muted);font-size:12px">
+              <th style="padding:6px 8px;width:44px"></th>
+              <th style="padding:6px 8px;width:130px">Area</th>
+              <th style="padding:6px 8px">Group names <span style="font-weight:400">(comma-separated)</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for key, names in area_names.items() %}
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:6px 8px"><img src="/static/area-{{ key }}.svg" alt="" style="width:28px;height:28px;display:block"></td>
+              <td style="padding:6px 8px;font-weight:600">{{ area_labels[key] }}</td>
+              <td style="padding:6px 8px"><input class="form-control" style="width:100%" name="names_{{ key }}" value="{{ names | join(', ') }}"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          <button type="submit" class="btn btn-secondary btn-sm" name="reset" value="1">Reset to defaults</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ── Maintenance ── -->
   <div class="card">
     <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
