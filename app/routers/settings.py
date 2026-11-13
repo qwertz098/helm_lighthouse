@@ -84,8 +84,29 @@ async def restore_issue(request: Request, filename: str):
 
 @router.get("", response_class=HTMLResponse)
 async def settings_page(request: Request):
+    from ..services.areas import group_names
     cfg = get_config()
-    return templates.TemplateResponse(request, "settings/settings.html", {"cfg": cfg})
+    return templates.TemplateResponse(request, "settings/settings.html",
+                                      {"cfg": cfg, "area_names": group_names(cfg.tile_areas)})
+
+
+# ── Device areas ─────────────────────────────────────────────────────────────
+
+@router.post("/areas", response_class=HTMLResponse)
+async def save_areas(request: Request):
+    """Group names per dashboard area; "reset" goes back to the built-in defaults."""
+    from ..services.areas import KEYS
+    form = await request.form()
+    data = _current_yaml()
+    if form.get("reset"):
+        data.pop("tile_areas", None)
+        _save(data)
+        return HTMLResponse('<span class="save-ok">✓ Defaults restored — reload the page to see them</span>')
+    data["tile_areas"] = {
+        k: [n.strip() for n in str(form.get(f"names_{k}", "")).split(",") if n.strip()] for k in KEYS
+    }
+    _save(data)
+    return HTMLResponse('<span class="save-ok">✓ Saved</span>')
 
 
 # ── General ──────────────────────────────────────────────────────────────────

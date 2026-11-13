@@ -40,6 +40,8 @@ _HEADER = """\
 #   password  — Optional password (stored in plain text — trusted network only)
 #   remarks     — Optional free-text notes shown in the expanded detail panel
 #   group       — Optional group label for visual grouping of tiles
+#   area        — Optional device area for the tile icon: network | services | controllers |
+#                 clients | field | meters; empty = from the group name (Settings › Device areas)
 #   chart_views — Optional named views for chart tiles, one per line: "Label|URL"
 #                 Example:  "Last 1h|http://host/chart/embed/abc/?from=now-1h"
 #   enabled     — true/false — disabled tiles are hidden
@@ -97,7 +99,7 @@ def load(path: Path) -> tuple[list[dict[str, Any]], str]:
             missing_ids = True
         e["id"] = str(e["id"])
         # "key:" without a value is None in YAML; the forms would show and save it as "None"
-        for k in ("name", "url", "icon", "bg_image", "username", "password", "remarks", "group", "chart_views"):
+        for k in ("name", "url", "icon", "bg_image", "username", "password", "remarks", "group", "area", "chart_views"):
             if e.get(k) is None:
                 e.pop(k, None)
         e.setdefault("type", "link")
@@ -109,6 +111,7 @@ def load(path: Path) -> tuple[list[dict[str, Any]], str]:
         e.setdefault("password", "")
         e.setdefault("remarks", "")
         e.setdefault("group", "")
+        e.setdefault("area", "")
         e.setdefault("chart_views", "")
         e.setdefault("enabled", True)
     if missing_ids:
