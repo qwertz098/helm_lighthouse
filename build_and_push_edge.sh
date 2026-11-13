@@ -11,8 +11,17 @@ if [ -z "$HELM_PULLED" ] && [ -d .git ] && command -v git >/dev/null 2>&1; then
 fi
 
 EDGE_IP="${EDGE_IP:-192.168.140.1}"
-IMAGE_NAME="${IMAGE_NAME:-helm}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
+
+# Jede Version bekommt einen eigenen Image-Namen (helm_v<Anzahl Commits>, z. B. helm_v31):
+# der SecureEdge Pro erkennt ein Update unter gleichem Namen und Tag nicht.
+if [ -z "${IMAGE_NAME:-}" ]; then
+  IMAGE_NAME="helm_v$(git rev-list --count HEAD 2>/dev/null || echo 0)"
+  if ! git diff --quiet HEAD 2>/dev/null; then
+    echo "[Build] WARNUNG: nicht committete Aenderungen, Image heisst ${IMAGE_NAME}-dirty" >&2
+    IMAGE_NAME="${IMAGE_NAME}-dirty"
+  fi
+fi
 
 docker buildx inspect secure-edge-pro >/dev/null 2>&1 || \
   docker buildx create --name secure-edge-pro \
@@ -27,3 +36,9 @@ docker buildx build --platform linux/arm64/v8 \
                     --build-arg APP_RELEASE="${APP_RELEASE}" \
                     --tag ${EDGE_IP}:5000/${IMAGE_NAME}:${IMAGE_TAG} \
                     --push .
+
+set +x
+echo
+echo "[Build] Fertig. Im IXON-Portal einen Container mit diesem Image anlegen:"
+echo "    ${EDGE_IP}:5000/${IMAGE_NAME}:${IMAGE_TAG}"
+echo "[Build] Volumes vom alten Container uebernehmen, danach alten Container und altes Image loeschen."
