@@ -31,10 +31,6 @@
         <a class="tile-name" href="{{ tile_url }}" target="_blank" rel="noopener">{{ tile.name }}</a>
         <div class="tile-actions">
           <button class="tile-btn" title="Expand details" data-action="details">＋</button>
-          <button class="tile-btn tile-btn-danger" title="Delete"
-                  hx-delete="/dashboard/entries/{{ tile.id }}"
-                  hx-target="#tiles-container"
-                  hx-confirm="Delete '{{ tile.name }}'?">✕</button>
         </div>
       </div>
 
@@ -114,6 +110,28 @@
             <input class="form-control" name="url" value="{{ tile.url }}">
           </div>
           <div class="detail-row">
+            <label class="form-label">Username</label>
+            <div style="display:flex;gap:6px">
+              <input class="form-control" name="username" value="{{ tile.username }}" style="flex:1">
+              <button type="button" class="btn btn-secondary btn-sm"
+                      title="Copy username"
+                      onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.textContent='✓';setTimeout(()=>this.innerHTML='✓',1200)" style="font-size:14px;padding:4px 8px;line-height:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="9" y="9" width="13" height="13" rx="0"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            </div>
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Password</label>
+            <div style="display:flex;gap:6px">
+              <input class="form-control" name="password" value="{{ tile.password }}" style="flex:1">
+              <button type="button" class="btn btn-secondary btn-sm"
+                      title="Copy password"
+                      onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.textContent='✓';setTimeout(()=>this.innerHTML='✓',1200)" style="font-size:14px;padding:4px 8px;line-height:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="9" y="9" width="13" height="13" rx="0"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+            </div>
+          </div>
+          <div class="detail-row">
+            <label class="form-label">Remarks</label>
+            <textarea class="form-control" name="remarks" rows="2">{{ tile.remarks }}</textarea>
+          </div>
+          <div class="detail-row">
             <label class="form-label">Type</label>
             <select class="form-control" name="type">
               <option value="link" {% if tile.type=='link' %}selected{% endif %}>Link</option>
@@ -152,28 +170,6 @@
             </div>
             <input type="file" accept="image/*" class="bg-file" hidden>
           </div>
-          <div class="detail-row">
-            <label class="form-label">Username</label>
-            <div style="display:flex;gap:6px">
-              <input class="form-control" name="username" value="{{ tile.username }}" style="flex:1">
-              <button type="button" class="btn btn-secondary btn-sm"
-                      title="Copy username"
-                      onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.textContent='✓';setTimeout(()=>this.innerHTML='✓',1200)" style="font-size:14px;padding:4px 8px;line-height:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="9" y="9" width="13" height="13" rx="0"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-            </div>
-          </div>
-          <div class="detail-row">
-            <label class="form-label">Password</label>
-            <div style="display:flex;gap:6px">
-              <input class="form-control" name="password" value="{{ tile.password }}" style="flex:1">
-              <button type="button" class="btn btn-secondary btn-sm"
-                      title="Copy password"
-                      onclick="navigator.clipboard.writeText(this.previousElementSibling.value);this.textContent='✓';setTimeout(()=>this.innerHTML='✓',1200)" style="font-size:14px;padding:4px 8px;line-height:1"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="9" y="9" width="13" height="13" rx="0"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-            </div>
-          </div>
-          <div class="detail-row">
-            <label class="form-label">Remarks</label>
-            <textarea class="form-control" name="remarks" rows="2">{{ tile.remarks }}</textarea>
-          </div>
           {% if tile.type == 'chart' %}
           <div class="detail-row">
             <label class="form-label">Chart views <span style="color:var(--text-muted);font-weight:400">(optional — one per line: <code>Label|URL</code>)</span></label>
@@ -183,7 +179,13 @@
           <input type="hidden" name="chart_views" value="{{ tile.chart_views }}">
           {% endif %}
           <input type="hidden" name="enabled" value="true">
-          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          <div style="display:flex;justify-content:space-between;gap:8px">
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            <button type="button" class="btn btn-danger btn-sm"
+                    hx-delete="/dashboard/entries/{{ tile.id }}"
+                    hx-target="#tiles-container"
+                    hx-confirm="Delete tile '{{ tile.name }}'? This cannot be undone.">Delete</button>
+          </div>
         </form>
       </div>
 
