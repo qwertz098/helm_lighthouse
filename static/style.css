@@ -262,6 +262,7 @@ textarea.form-control { resize: vertical; }
 .tile-details { position: absolute; top: 100%; left: -1px; right: -1px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); box-shadow: var(--shadow-float, 0 8px 24px rgba(0,0,0,.18)); }
 .detail-row { display: flex; flex-direction: column; gap: 3px; }
 .detail-row .form-control { min-width: 0; }  /* input + copy button stay inside the panel */
+.tile-details textarea.form-control { overflow-y: hidden; }  /* grows with its text (dashboard.html autosize) */
 
 /* ── Utility ──────────────────────────────────────────────────────────────── */
 .flex { display: flex; }

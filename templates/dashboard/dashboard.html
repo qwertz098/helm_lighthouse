@@ -234,7 +234,14 @@ function setDetails(tile, open) {
   const btn = tile.querySelector('[data-action="details"]');
   btn.textContent = open ? '−' : '＋';
   btn.title = open ? 'Collapse details' : 'Expand details';
+  if (open) tile.querySelectorAll('.tile-details textarea').forEach(autosize);
 }
+// Remarks / chart views grow with their text (measurable only while visible)
+function autosize(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = (ta.scrollHeight + ta.offsetHeight - ta.clientHeight) + 'px';
+}
+tiles.addEventListener('input', e => { if (e.target.matches('.tile-details textarea')) autosize(e.target); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !document.querySelector('.confirm-backdrop'))
     tiles.querySelectorAll('.tile.details-open').forEach(t => setDetails(t, false));
