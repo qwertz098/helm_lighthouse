@@ -9,7 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="{{ _logo }}">
   <script src="/static/theme.js?v=3"></script>
   <link rel="stylesheet" href="/static/themes.css?v=3">
-  <link rel="stylesheet" href="/static/style.css?v=3">
+  <link rel="stylesheet" href="/static/style.css?v=4">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -31,6 +31,30 @@
   <main class="app-main">
     {% block content %}{% endblock %}
   </main>
+  <script>
+  // hx-confirm questions in Helm's own dialog: the browser's confirm() is silently
+  // suppressed in some places (e.g. when Helm runs inside the IXON portal's frame).
+  document.addEventListener('htmx:confirm', e => {
+    if (!e.detail.question) return;
+    e.preventDefault();
+    const box = document.createElement('div');
+    box.className = 'confirm-backdrop';
+    box.innerHTML = '<div class="confirm-dialog" role="alertdialog" aria-modal="true">'
+      + '<p class="confirm-text"></p><div class="confirm-actions">'
+      + '<button type="button" class="btn btn-secondary btn-sm" data-answer="no">Cancel</button>'
+      + '<button type="button" class="btn btn-danger btn-sm" data-answer="yes">OK</button></div></div>';
+    box.querySelector('.confirm-text').textContent = e.detail.question;
+    const close = yes => { box.remove(); document.removeEventListener('keydown', onKey); if (yes) e.detail.issueRequest(true); };
+    const onKey = k => { if (k.key === 'Escape') close(false); };
+    box.addEventListener('click', c => {
+      if (c.target === box || c.target.dataset.answer === 'no') close(false);
+      else if (c.target.dataset.answer === 'yes') close(true);
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(box);
+    box.querySelector('[data-answer="no"]').focus();
+  });
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

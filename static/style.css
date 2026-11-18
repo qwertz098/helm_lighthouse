@@ -255,8 +255,12 @@ textarea.form-control { resize: vertical; }
 .link-thumb-wrap.thumb-failed .link-thumb-overlay { display: none; }
 .link-thumb-wrap.thumb-failed:hover .link-thumb-overlay { display: flex; opacity: 1; }
 .paste-zone { padding: 10px; border: 2px dashed var(--accent); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); font-size: 12px; text-align: center; outline: none; caret-color: transparent; }
-.tile-details { padding: 12px; border-top: 1px solid var(--panel); background: var(--panel); }
+/* Details float over the tiles below instead of stretching the whole grid row */
+.tile { position: relative; }
+.tile.details-open { overflow: visible; z-index: 30; border-bottom-left-radius: 0; border-bottom-right-radius: 0; box-shadow: var(--shadow-float, 0 8px 24px rgba(0,0,0,.18)); }
+.tile-details { position: absolute; top: 100%; left: -1px; right: -1px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); box-shadow: var(--shadow-float, 0 8px 24px rgba(0,0,0,.18)); }
 .detail-row { display: flex; flex-direction: column; gap: 3px; }
+.detail-row .form-control { min-width: 0; }  /* input + copy button stay inside the panel */
 
 /* ── Utility ──────────────────────────────────────────────────────────────── */
 .flex { display: flex; }
@@ -305,3 +309,9 @@ textarea.form-control { resize: vertical; }
 .view-btn { padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); color: var(--text); font-size: 11px; font-weight: 600; cursor: pointer; transition: background 0.1s, color 0.1s; }
 .view-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
 .view-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+/* ── Confirm dialog (hx-confirm) ─────────────────────────────────────────── */
+.confirm-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: flex; align-items: center; justify-content: center; z-index: 1100; }
+.confirm-dialog { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-float, var(--shadow)); padding: 18px 20px; max-width: 420px; width: calc(100% - 32px); }
+.confirm-text { margin-bottom: 16px; overflow-wrap: anywhere; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }

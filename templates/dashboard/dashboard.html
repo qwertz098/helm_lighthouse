@@ -209,11 +209,10 @@ tiles.addEventListener('click', e => {
   const { url, name } = tile.dataset;
   switch (btn.dataset.action) {
     case 'details': {
-      const details = tile.querySelector('.tile-details');
-      const open = details.style.display === 'none';
-      details.style.display = open ? '' : 'none';
-      btn.textContent = open ? '−' : '＋';
-      btn.title = open ? 'Collapse details' : 'Expand details';
+      const open = !tile.classList.contains('details-open');
+      // one floating panel at a time, otherwise they cover each other
+      tiles.querySelectorAll('.tile.details-open').forEach(t => { if (t !== tile) setDetails(t, false); });
+      setDetails(tile, open);
       break;
     }
     case 'view':
@@ -227,6 +226,18 @@ tiles.addEventListener('click', e => {
     case 'camera': openCamera(url, name); break;
     case 'video':  openVideo(url, name);  break;
   }
+});
+
+function setDetails(tile, open) {
+  tile.classList.toggle('details-open', open);
+  tile.querySelector('.tile-details').style.display = open ? '' : 'none';
+  const btn = tile.querySelector('[data-action="details"]');
+  btn.textContent = open ? '−' : '＋';
+  btn.title = open ? 'Collapse details' : 'Expand details';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.querySelector('.confirm-backdrop'))
+    tiles.querySelectorAll('.tile.details-open').forEach(t => setDetails(t, false));
 });
 
 // Background picture for a tile: "Bild hochladen…" or "Aus Zwischenablage"
